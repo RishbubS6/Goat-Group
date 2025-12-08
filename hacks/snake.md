@@ -66,11 +66,38 @@ permalink: /snake/
         background-color: #FFF;
         color: #000;
     }
+
+    /* Scoreboard styling */
+    #scoreboard{
+        display: inline-flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        margin: 12px auto;
+        padding: 6px 10px;
+        border-radius: 12px;
+        background: rgba(0,0,0,0.45);
+        color: #fff;
+    }
+    .score-item{
+        background: rgba(255,255,255,0.06);
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    #score_value, #high_score_value{
+        margin-left: 6px;
+        color: #ffd700;
+    }
 </style>
+
 
 <h2>Snake</h2>
 <div class="container">
-    <p class="fs-4">Score: <span id="score_value">0</span></p>
+    <div id="scoreboard" class="fs-4">
+        <div class="score-item">Score: <span id="score_value">0</span></div>
+        <div class="score-item">High (session): <span id="high_score_value">0</span></div>
+    </div>
 
     <div class="container bg-secondary" style="text-align:center;">
         <!-- Main Menu -->
@@ -121,6 +148,8 @@ permalink: /snake/
         const SCREEN_SNAKE = 0;
         const screen_snake = document.getElementById("snake");
         const ele_score = document.getElementById("score_value");
+        const ele_highscore = document.getElementById("high_score_value");
+        let highScore = 0;
         const speed_setting = document.getElementsByName("speed");
         const wall_setting = document.getElementsByName("wall");
         // HTML Screen IDs (div)
@@ -134,6 +163,7 @@ permalink: /snake/
         const button_new_game2 = document.getElementById("new_game2");
         const button_setting_menu = document.getElementById("setting_menu");
         const button_setting_menu1 = document.getElementById("setting_menu1");
+        // (start-choice buttons removed) 
         // Game Control
         const BLOCK = 10;   // size of block rendering
         let SCREEN = SCREEN_MENU;
@@ -263,18 +293,27 @@ permalink: /snake/
                 snake[snake.length] = {x: snake[0].x, y: snake[0].y};
                 altScore(++score);
                 addFood();
-                activeDot(food.x, food.y);
+                // draw new food immediately in red
+                activeDot(food.x, food.y, "#FF0000");
             }
-            // Repaint canvas
-            ctx.beginPath();
-            ctx.fillStyle = "royalblue";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Repaint canvas with alternating green tiles (Google-doodle style)
+            // fill the board as a checker pattern of tiles the size of BLOCK
+            const cols = canvas.width / BLOCK;
+            const rows = canvas.height / BLOCK;
+            for (let ry = 0; ry < rows; ry++){
+                for (let rx = 0; rx < cols; rx++){
+                    // choose light or dark green based on parity
+                    ctx.fillStyle = ((rx + ry) % 2 === 0) ? '#c7f0c7' : '#8fd48f';
+                    ctx.fillRect(rx * BLOCK, ry * BLOCK, BLOCK, BLOCK);
+                }
+            }
             // Paint snake
             for(let i = 0; i < snake.length; i++){
-                activeDot(snake[i].x, snake[i].y);
+                // snake segments in green
+                activeDot(snake[i].x, snake[i].y, "#32CD32");
             }
-            // Paint food
-            activeDot(food.x, food.y);
+            // Paint food in red
+            activeDot(food.x, food.y, "#FF0000");
             // Debug
             //document.getElementById("debug").innerHTML = snake_dir + " " + snake_next_dir + " " + snake[0].x + " " + snake[0].y;
             // Recursive call after speed delay, déjà vu
@@ -288,6 +327,9 @@ permalink: /snake/
             screen_snake.focus();
             // game score to zero
             score = 0;
+            // initialize session high score and update display
+            try{ highScore = parseInt(sessionStorage.getItem('snake_highscore')) || 0; }catch(e){ highScore = 0; }
+            if(ele_highscore) ele_highscore.textContent = String(highScore);
             altScore(score);
             // initial snake
             snake = [];
@@ -326,8 +368,9 @@ permalink: /snake/
         }
         /* Dot for Food or Snake part */
         /////////////////////////////////////////////////////////////
-        let activeDot = function(x, y){
-            ctx.fillStyle = "#FFFFFF";
+        let activeDot = function(x, y, color){
+            // color: optional CSS color string. Default to red for food.
+            ctx.fillStyle = color || "rgba(250, 6, 6, 1)";
             ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
         }
         /* Random food placement */
@@ -349,7 +392,13 @@ permalink: /snake/
         /* Update Score */
         /////////////////////////////////////////////////////////////
         let altScore = function(score_val){
-            ele_score.innerHTML = String(score_val);
+            ele_score.textContent = String(score_val);
+            // update session high score if needed
+            if(score_val > highScore){
+                highScore = score_val;
+                try{ sessionStorage.setItem('snake_highscore', String(highScore)); }catch(e){}
+                if(ele_highscore) ele_highscore.textContent = String(highScore);
+            }
         }
         /////////////////////////////////////////////////////////////
         // Change the snake speed...
@@ -359,7 +408,7 @@ permalink: /snake/
         let setSnakeSpeed = function(speed_value){
             snake_speed = speed_value;
         }
-        /////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////
         let setWall = function(wall_value){
             wall = wall_value;
             if(wall === 0){screen_snake.style.borderColor = "#606060";}
