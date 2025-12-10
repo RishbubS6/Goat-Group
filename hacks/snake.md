@@ -3,16 +3,13 @@ layout: opencs
 title: Snake Game
 permalink: /snake/
 ---
-
 <style>
-
     body{
     }
     .wrap{
         margin-left: auto;
         margin-right: auto;
     }
-
     canvas{
         display: none;
         border-style: solid;
@@ -22,82 +19,45 @@ permalink: /snake/
     canvas:focus{
         outline: none;
     }
-
     /* All screens style */
     #gameover p, #setting p, #menu p{
         font-size: 20px;
     }
-
     #gameover a, #setting a, #menu a{
         font-size: 30px;
         display: block;
     }
-
     #gameover a:hover, #setting a:hover, #menu a:hover{
         cursor: pointer;
     }
-
     #gameover a:hover::before, #setting a:hover::before, #menu a:hover::before{
         content: ">";
         margin-right: 10px;
     }
-
     #menu{
         display: block;
     }
-
     #gameover{
         display: none;
     }
-
     #setting{
         display: none;
     }
-
     #setting input{
         display:none;
     }
-
     #setting label{
         cursor: pointer;
     }
-
     #setting input:checked + label{
         background-color: #FFF;
         color: #000;
     }
-
-    /* Scoreboard styling */
-    #scoreboard{
-        display: inline-flex;
-        gap: 12px;
-        align-items: center;
-        justify-content: center;
-        margin: 12px auto;
-        padding: 6px 10px;
-        border-radius: 12px;
-        background: rgba(0,0,0,0.45);
-        color: #fff;
-    }
-    .score-item{
-        background: rgba(255,255,255,0.06);
-        padding: 6px 10px;
-        border-radius: 8px;
-        font-weight: 600;
-    }
-    #score_value, #high_score_value{
-        margin-left: 6px;
-        color: #ffd700;
-    }
 </style>
-
 
 <h2>Snake</h2>
 <div class="container">
-    <div id="scoreboard" class="fs-4">
-        <div class="score-item">Score: <span id="score_value">0</span></div>
-        <div class="score-item">High (session): <span id="high_score_value">0</span></div>
-    </div>
+    <p class="fs-4">Score: <span id="score_value">0</span></p>
 
     <div class="container bg-secondary" style="text-align:center;">
         <!-- Main Menu -->
@@ -136,7 +96,6 @@ permalink: /snake/
         </div>
     </div>
 </div>
-
 <script>
     (function(){
         /* Attributes of Game */
@@ -163,7 +122,6 @@ permalink: /snake/
         const button_new_game2 = document.getElementById("new_game2");
         const button_setting_menu = document.getElementById("setting_menu");
         const button_setting_menu1 = document.getElementById("setting_menu1");
-        // (start-choice buttons removed) 
         // Game Control
         const BLOCK = 10;   // size of block rendering
         let SCREEN = SCREEN_MENU;
@@ -203,7 +161,8 @@ permalink: /snake/
                     break;
             }
         }
-        /* Actions and Events  */
+8:53
+/* Actions and Events  */
         /////////////////////////////////////////////////////////////
         window.onload = function(){
             // HTML Events to Functions
@@ -296,17 +255,10 @@ permalink: /snake/
                 // draw new food immediately in red
                 activeDot(food.x, food.y, "#FF0000");
             }
-            // Repaint canvas with alternating green tiles (Google-doodle style)
-            // fill the board as a checker pattern of tiles the size of BLOCK
-            const cols = canvas.width / BLOCK;
-            const rows = canvas.height / BLOCK;
-            for (let ry = 0; ry < rows; ry++){
-                for (let rx = 0; rx < cols; rx++){
-                    // choose light or dark green based on parity
-                    ctx.fillStyle = ((rx + ry) % 2 === 0) ? '#c7f0c7' : '#8fd48f';
-                    ctx.fillRect(rx * BLOCK, ry * BLOCK, BLOCK, BLOCK);
-                }
-            }
+            // Repaint canvas
+            ctx.beginPath();
+            ctx.fillStyle = "royalblue";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             // Paint snake
             for(let i = 0; i < snake.length; i++){
                 // snake segments in green
