@@ -544,3 +544,12 @@ body {
     </div>
   </div>
 </div>
+# Planned update to pong - speed up ball
+# The ball should speed up by 25% of its current speed value every time it hits a paddle
+# Requirements for this to work:
+# At least one new function
+# An if statement to check conditions (like score or collisions)
+# Proper placement in HTML, CSS, or JavaScript
+# Use of localStorage if you want the feature saved between plays
+# --------
+# We will use an if statement to detect ball collision with paddle. If (ball collides with paddle), then (speed up ball by 25%)
