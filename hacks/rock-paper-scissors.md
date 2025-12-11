@@ -54,15 +54,15 @@ permalink: /rock-paper-scissors/
     </div>
     <div id="images" style="display:flex; justify-content:center; gap:20px; margin-bottom:14px;">
       <button id="rock-btn" aria-label="play rock" tabindex="0" style="background:none; border:none; padding:0; cursor:pointer;">
-        <img id="rock-img" src="{{site.baseurl}}/images/rps/rock.jpg"
+        <img id="rock-img" src="{{site.baseurl}}/images/rock.png"
              alt="Rock" role="img" style="width:100px; border:2px solid white; border-radius:10px;">
       </button>
       <button id="paper-btn" aria-label="play paper" tabindex="0" style="background:none; border:none; padding:0; cursor:pointer;">
-        <img id="paper-img" src="{{site.baseurl}}/images/rps/paper.jpeg"
+        <img id="paper-img" src="{{site.baseurl}}/images/paper.png"
              alt="Paper" role="img" style="width:100px; border:2px solid white; border-radius:10px;">
       </button>
       <button id="scissors-btn" aria-label="play scissors" tabindex="0" style="background:none; border:none; padding:0; cursor:pointer;">
-        <img id="scissors-img" src="{{site.baseurl}}/images/rps/scissors.jpeg"
+        <img id="scissors-img" src="{{site.baseurl}}/images/scissors.png"
              alt="Scissors" role="img" style="width:100px; border:2px solid white; border-radius:10px;">
       </button>
     </div>
