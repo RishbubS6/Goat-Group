@@ -106,13 +106,18 @@ permalink: /background
       constructor(x, y, r, vx, img = null) {
         this.x = x; this.y = y; this.r = r; this.vx = vx; this.img = img; this.color = '#8B4513';
         this.w = this.h = this.r * 2;
+        // rotation state for animated asteroids
+        this.angle = Math.random() * Math.PI * 2;
+        this.angularSpeed = (Math.random() * 0.06 - 0.03); // -0.03..0.03 rad/frame
       }
-      update() { this.x += this.vx; }
+      update() { this.x += this.vx; this.angle += this.angularSpeed; }
       draw(ctx) {
         ctx.save();
         if (this.img && this.img.ready && this.img.complete && this.img.naturalWidth > 0) {
           const drawW = this.w; const drawH = this.h;
-          ctx.drawImage(this.img, this.x - drawW/2, this.y - drawH/2, drawW, drawH);
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.angle);
+          ctx.drawImage(this.img, -drawW/2, -drawH/2, drawW, drawH);
         } else {
           ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
         }
@@ -147,27 +152,41 @@ permalink: /background
         this.spawnInterval = 90;
         this.obstacleImage = obstacleImg;
 
-        // Score and pause state
+        // Score, lives, high score and pause state
         this.score = 0;
+        this.initialLives = 3; // starting lives
+        this.lives = this.initialLives;
         this.paused = false;
+        // persistent high score (localStorage key)
+        this.highScoreKey = 'bg_highscore';
+        this.highScore = parseInt(localStorage.getItem(this.highScoreKey) || '0', 10) || 0;
 
-        // HUD (score display) and retry button
+        // HUD (score + high score + lives) and retry button
         this.hud = document.createElement('div');
         Object.assign(this.hud.style, {
           position: 'fixed', left: '12px', top: '12px', zIndex: 9999,
           color: 'white', background: 'rgba(0,0,0,0.45)', padding: '6px 10px', borderRadius: '6px', fontFamily: 'monospace'
         });
-        this.hud.innerHTML = `Score: <span id="rps-score">0</span>`;
+        this.hud.innerHTML = `Score: <span id="rps-score">0</span> &nbsp; High: <span id="rps-high">${this.highScore}</span> &nbsp; Lives: <span id="rps-lives">${this.lives}</span>`;
         document.body.appendChild(this.hud);
         this.hudScore = this.hud.querySelector('#rps-score');
+        this.hudHigh = this.hud.querySelector('#rps-high');
+        this.hudLives = this.hud.querySelector('#rps-lives');
 
-        this.retryBtn = document.createElement('button');
+  this.retryBtn = document.createElement('button');
+        this.retryBtn.id = 'game-retry-btn';
+        this.retryBtn.setAttribute('aria-label', 'Retry game');
         this.retryBtn.textContent = 'Retry';
         Object.assign(this.retryBtn.style, {
-          position: 'fixed', right: '12px', top: '12px', zIndex: 9999, padding: '8px 12px', display: 'none'
+          position: 'fixed', right: '12px', top: '12px', zIndex: 2147483647, padding: '10px 14px',
+          display: 'none', background: '#ff4757', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.35)'
         });
+        this.retryBtn.setAttribute('aria-hidden', 'true');
         document.body.appendChild(this.retryBtn);
         this.retryBtn.addEventListener('click', () => { this.resetGame(); });
+        // allow keyboard activation when visible
+        this.retryBtn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.resetGame(); } });
 
         // Input handling (WASD)
         window.addEventListener('keydown', (e) => {
@@ -218,23 +237,43 @@ permalink: /background
             // passed off screen: count as dodged
             this.obstacles.splice(i, 1);
             this.score += 1;
+            // update high score if needed
+            if (this.score > this.highScore) {
+              this.highScore = this.score;
+              try { localStorage.setItem(this.highScoreKey, String(this.highScore)); } catch (e) { /* ignore storage errors */ }
+              // visual indicator for new high
+              this.pulseHigh();
+            }
           }
 
           if (!this.player.hit && this.checkCollision(obs, this.player)) {
-            // on collision: reset score, pause and show retry
+            // on collision: decrement lives, reset score, pause and show retry
             this.player.hit = true;
             console.log('Collision! You were hit by an obstacle.');
             this.flashPlayer();
+            // remove the hitting obstacle so it doesn't keep colliding
+            this.obstacles.splice(i, 1);
+            this.lives -= 1;
             this.score = 0; // restart score per user request
-            this.hudScore.textContent = String(this.score);
+            if (this.hudScore) this.hudScore.textContent = String(this.score);
+            if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+            if (this.hudLives) this.hudLives.textContent = String(this.lives);
             this.paused = true;
             this.retryBtn.style.display = 'block';
+            this.retryBtn.setAttribute('aria-hidden', 'false');
+            // if out of lives, show game over on the button
+            if (this.lives <= 0) {
+              this.retryBtn.textContent = 'Game Over - Restart';
+            } else {
+              this.retryBtn.textContent = 'Retry';
+            }
             break;
           }
         }
 
         // update HUD score
         if (this.hudScore) this.hudScore.textContent = String(this.score);
+        if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
 
         if (!this.paused) {
           requestAnimationFrame(this.gameLoop.bind(this));
@@ -248,6 +287,17 @@ permalink: /background
         ctx.fillStyle = 'rgba(255,0,0,0.25)';
         ctx.fillRect(p.x, p.y, p.width, p.height);
         ctx.restore();
+      }
+
+      // briefly pulse the high score element to indicate a new high
+      pulseHigh() {
+        if (!this.hudHigh) return;
+        const el = this.hudHigh;
+        const orig = el.style.transition;
+        el.style.transition = 'transform 0.25s ease, color 0.25s ease';
+        el.style.transform = 'scale(1.25)';
+        el.style.color = '#ffd700';
+        setTimeout(() => { el.style.transform = ''; el.style.color = ''; el.style.transition = orig || ''; }, 500);
       }
 
       checkCollision(obs, player) {
@@ -271,15 +321,23 @@ permalink: /background
 
     // reset game state and resume
     GameWorld.prototype.resetGame = function() {
-      // clear obstacles, reset player, reset score, hide retry button and resume
+      // clear obstacles, reset player flag, reset score, hide retry button and resume
       this.obstacles = [];
       this.player.hit = false;
       // center player
       this.player.x = (this.width - this.player.width) / 2;
       this.player.y = (this.height - this.player.height) / 2;
+      // if out of lives, restart lives
+      if (this.lives <= 0) {
+        this.lives = this.initialLives;
+      }
       this.score = 0;
       if (this.hudScore) this.hudScore.textContent = String(this.score);
+      if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+      if (this.hudLives) this.hudLives.textContent = String(this.lives);
       this.retryBtn.style.display = 'none';
+      this.retryBtn.setAttribute('aria-hidden', 'true');
+      this.retryBtn.textContent = 'Retry';
       this.paused = false;
       // restart loop
       this.gameLoop();
