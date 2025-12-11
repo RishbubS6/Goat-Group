@@ -1,10 +1,10 @@
 ---
-title: Rock paper Scissors
+title: Rock Paper Scissors
 comments: true
 hide: true
 layout: opencs
 description: Learn how to experiment with the console, elements, and see OOP in action while playing Rock paper Scissors!
-permalink: /rock-paper-scissor/
+permalink: /rock-paper-scissors/
 ---
 
 
@@ -13,6 +13,18 @@ permalink: /rock-paper-scissor/
     <canvas id='gameCanvas' style="display:none"></canvas>
   </div>
 </div>
+
+<style>
+  /* keyboard focus styles for the icon buttons */
+  #images button:focus-visible {
+    outline: 3px solid #ffd700;
+    outline-offset: 4px;
+    box-shadow: 0 0 12px #ffd700;
+    border-radius: 10px;
+  }
+  /* ensure images show pointer and are selectable targets */
+  #images img { cursor: pointer; }
+</style>
 
 <script type="module">
   // --- UI (purple box) ---
@@ -37,21 +49,21 @@ permalink: /rock-paper-scissor/
   const instructionsHTML = `
     <h2 style="color: purple; margin-bottom: 20px;">Rock Paper Scissors SHOOT!</h2>
     <div style="margin-bottom: 20px;">
-      <p>Play the game from your browser console!</p>
-      <p>Type <code>playRPS("rock")</code>, <code>playRPS("paper")</code>, or <code>playRPS("scissors")</code></p>
+      <p>Play the game from your browser console, by clicking an icon, or by pressing the keys <code>R</code>, <code>P</code>, or <code>S</code> on your keyboard.</p>
+      <p>Type <code>playRPS("rock")</code>, <code>playRPS("paper")</code>, or <code>playRPS("scissors")</code> in the console to experiment with the provided classes.</p>
     </div>
     <div id="images" style="display:flex; justify-content:center; gap:20px; margin-bottom:14px;">
-      <button id="rock-btn" style="background:none; border:none; padding:0; cursor:pointer;">
+      <button id="rock-btn" aria-label="play rock" tabindex="0" style="background:none; border:none; padding:0; cursor:pointer;">
         <img id="rock-img" src="{{site.baseurl}}/images/rps/rock.jpg"
-             style="width:100px; border:2px solid white; border-radius:10px;">
+             alt="Rock" role="img" style="width:100px; border:2px solid white; border-radius:10px;">
       </button>
-      <button id="paper-btn" style="background:none; border:none; padding:0; cursor:pointer;">
+      <button id="paper-btn" aria-label="play paper" tabindex="0" style="background:none; border:none; padding:0; cursor:pointer;">
         <img id="paper-img" src="{{site.baseurl}}/images/rps/paper.jpeg"
-             style="width:100px; border:2px solid white; border-radius:10px;">
+             alt="Paper" role="img" style="width:100px; border:2px solid white; border-radius:10px;">
       </button>
-      <button id="scissors-btn" style="background:none; border:none; padding:0; cursor:pointer;">
+      <button id="scissors-btn" aria-label="play scissors" tabindex="0" style="background:none; border:none; padding:0; cursor:pointer;">
         <img id="scissors-img" src="{{site.baseurl}}/images/rps/scissors.jpeg"
-             style="width:100px; border:2px solid white; border-radius:10px;">
+             alt="Scissors" role="img" style="width:100px; border:2px solid white; border-radius:10px;">
       </button>
     </div>
     <div style="margin-bottom:18px; font-size:1.1em; color:#ffd700;">
@@ -60,7 +72,7 @@ permalink: /rock-paper-scissor/
     <!-- mount battle canvas INSIDE the purple box so you can see it -->
     <div id="battleMount" style="display:block; margin:12px auto;"></div>
 
-    <div id="resultBox" style="margin-top: 16px; font-size: 16px; color: yellow;"></div>
+  <div id="resultBox" role="status" aria-live="polite" style="margin-top: 16px; font-size: 16px; color: yellow;"></div>
   `;
   const container = document.createElement("div");
   container.setAttribute("style", instructionsStyle);
@@ -315,7 +327,14 @@ permalink: /rock-paper-scissor/
   class GameObject {
     constructor(id) {
       this.el = document.getElementById(id);
-      if (!this.el) throw new Error(`Element #${id} not found`);
+      if (!this.el) {
+        // Make the class tolerant if the element isn't present in the DOM
+        // (useful for progressive enhancement or when loaded in a context
+        // where images are missing). Provide a minimal fake element with a
+        // style object so calls like .style.* won't fail.
+        console.warn(`GameObject: element #${id} not found — using a dummy element.`);
+        this.el = { style: {} };
+      }
     }
 
     rotate(deg) {
@@ -370,13 +389,35 @@ permalink: /rock-paper-scissor/
   window.scissors = scissors;
 
   // --- inspect-learning alerts (unchanged) ---
+  // Clicking the icons will play that choice; console tips are logged instead of blocking alerts.
   document.getElementById("rock-btn").addEventListener("click", () => {
-    alert("🪨 Try in the console:\n\nrock.setBorder('4px solid lime');");
+    console.log("Tip: try in console -> rock.setBorder('4px solid lime');");
+    playRPS('rock');
   });
   document.getElementById("paper-btn").addEventListener("click", () => {
-    alert("📄 Try in the console:\n\npaper.rotate(15);");
+    console.log("Tip: try in console -> paper.rotate(15);");
+    playRPS('paper');
   });
   document.getElementById("scissors-btn").addEventListener("click", () => {
-    alert("✂️ Try in the console:\n\nscissors.setWidth(150);");
+    console.log("Tip: try in console -> scissors.setWidth(150);");
+    playRPS('scissors');
+  });
+
+  // Keyboard support: press R / P / S (case-insensitive) to play
+  document.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (key === 'r') playRPS('rock');
+    if (key === 'p') playRPS('paper');
+    if (key === 's') playRPS('scissors');
+  });
+
+  // Ensure Enter / Space activate focused buttons for accessibility
+  document.querySelectorAll('#images button').forEach(btn => {
+    btn.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        btn.click();
+      }
+    });
   });
 </script>
