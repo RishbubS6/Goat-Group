@@ -553,3 +553,96 @@ body {
 # Use of localStorage if you want the feature saved between plays
 # --------
 # We will use an if statement to detect ball collision with paddle. If (ball collides with paddle), then (speed up ball by 25%)
+
+<div style="text-align:center; margin: 1rem 0;">
+  <canvas id="pongCanvas" width="800" height="500" style="border:2px solid #fff; background:#000; max-width:100%;"></canvas>
+</div>
+
+<script>
+(function(){
+  const Config = {
+    canvas: { width: 800, height: 500 },
+    paddle: { width: 10, height: 100, speed: 7 },
+    ball: { radius: 8, baseSpeedX: 5, maxSpeed: 18, spinFactor: 0.3 },
+    keys: { p1Up: 'w', p1Down: 's', p2Up: 'i', p2Down: 'k' },
+    visuals: { bg: '#000', fg: '#fff' }
+  };
+
+  const canvas = document.getElementById('pongCanvas');
+  canvas.width = Config.canvas.width; canvas.height = Config.canvas.height;
+  const ctx = canvas.getContext('2d');
+
+  const paddleLeft = { x: 0, y: (Config.canvas.height - Config.paddle.height) / 2, w: Config.paddle.width, h: Config.paddle.height, speed: Config.paddle.speed };
+  const paddleRight = { x: Config.canvas.width - Config.paddle.width, y: (Config.canvas.height - Config.paddle.height) / 2, w: Config.paddle.width, h: Config.paddle.height, speed: Config.paddle.speed };
+  const ball = { x: Config.canvas.width / 2, y: Config.canvas.height / 2, r: Config.ball.radius, vx: Config.ball.baseSpeedX * (Math.random() > 0.5 ? 1 : -1), vy: (Math.random() * 2 - 1) * 2 };
+
+  const keys = {};
+  document.addEventListener('keydown', e => keys[e.key] = true);
+  document.addEventListener('keyup', e => keys[e.key] = false);
+
+  function increaseBallSpeed(factor = 1.25) {
+    if (!factor || factor <= 0) return;
+    const cap = Config.ball.maxSpeed || 9999;
+    // X component: explicit if-statements to scale and cap while preserving sign
+    if (ball.vx > 0) {
+      ball.vx = Math.min(ball.vx * factor, cap);
+    } else if (ball.vx < 0) {
+      ball.vx = -Math.min(Math.abs(ball.vx * factor), cap);
+    }
+    // Y component: same approach
+    if (ball.vy > 0) {
+      ball.vy = Math.min(ball.vy * factor, cap);
+    } else if (ball.vy < 0) {
+      ball.vy = -Math.min(Math.abs(ball.vy * factor), cap);
+    }
+  }
+
+  function update() {
+    // input
+    if (keys[Config.keys.p1Up]) paddleLeft.y = Math.max(0, paddleLeft.y - paddleLeft.speed);
+    if (keys[Config.keys.p1Down]) paddleLeft.y = Math.min(Config.canvas.height - paddleLeft.h, paddleLeft.y + paddleLeft.speed);
+    if (keys[Config.keys.p2Up]) paddleRight.y = Math.max(0, paddleRight.y - paddleRight.speed);
+    if (keys[Config.keys.p2Down]) paddleRight.y = Math.min(Config.canvas.height - paddleRight.h, paddleRight.y + paddleRight.speed);
+
+    // move ball
+    ball.x += ball.vx; ball.y += ball.vy;
+
+    // wall bounce
+    if (ball.y - ball.r < 0 || ball.y + ball.r > Config.canvas.height) ball.vy *= -1;
+
+    // paddle collisions (with if statements)
+    if (ball.x - ball.r < paddleLeft.x + paddleLeft.w && ball.y > paddleLeft.y && ball.y < paddleLeft.y + paddleLeft.h) {
+      ball.vx = Math.abs(ball.vx);
+      const delta = ball.y - (paddleLeft.y + paddleLeft.h / 2);
+      ball.vy = delta * Config.ball.spinFactor;
+      increaseBallSpeed(1.25);
+    }
+
+    if (ball.x + ball.r > paddleRight.x && ball.y > paddleRight.y && ball.y < paddleRight.y + paddleRight.h) {
+      ball.vx = -Math.abs(ball.vx);
+      const delta = ball.y - (paddleRight.y + paddleRight.h / 2);
+      ball.vy = delta * Config.ball.spinFactor;
+      increaseBallSpeed(1.25);
+    }
+
+    // simple reset if ball goes far off screen
+    if (ball.x < -50 || ball.x > Config.canvas.width + 50) {
+      ball.x = Config.canvas.width / 2; ball.y = Config.canvas.height / 2;
+      ball.vx = Config.ball.baseSpeedX * (Math.random() > 0.5 ? 1 : -1);
+      ball.vy = (Math.random() * 2 - 1) * 2;
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle = Config.visuals.bg; ctx.fillRect(0, 0, Config.canvas.width, Config.canvas.height);
+    ctx.fillStyle = Config.visuals.fg;
+    ctx.fillRect(paddleLeft.x, paddleLeft.y, paddleLeft.w, paddleLeft.h);
+    ctx.fillRect(paddleRight.x, paddleRight.y, paddleRight.w, paddleRight.h);
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function loop() { update(); draw(); requestAnimationFrame(loop); }
+  loop();
+})();
+</script>
+
