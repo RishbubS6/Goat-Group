@@ -54,7 +54,7 @@ comments: True
 const Config = {
   canvas: { width: 800, height: 500 },
   paddle: { width: 10, height: 100, speed: 7 },
-  ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3 },
+  ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3, maxSpeed: 18 },
   rules: { winningScore: 10 },
   keys: {
     // TODO[Students]: Remap keys if desired
@@ -200,6 +200,8 @@ class Game {
       this.ball.velocity.x *= -1;
       const delta = this.ball.position.y - (this.paddleLeft.position.y + this.paddleLeft.height / 2);
       this.ball.velocity.y = delta * Config.ball.spinFactor; // "spin"
+      // Increase ball speed on paddle hit
+      this.increaseBallSpeed(1.25);
     }
 
     const hitRight = this.ball.position.x + this.ball.radius > (Config.canvas.width - this.paddleRight.width) &&
@@ -210,6 +212,8 @@ class Game {
       this.ball.velocity.x *= -1;
       const delta = this.ball.position.y - (this.paddleRight.position.y + this.paddleRight.height / 2);
       this.ball.velocity.y = delta * Config.ball.spinFactor;
+      // Increase ball speed on paddle hit
+      this.increaseBallSpeed(1.25);
     }
 
     // Scoring
@@ -220,6 +224,17 @@ class Game {
       this.scores.p1++;
       this.checkWin() || this.ball.reset();
     }
+  }
+
+  // Increase ball speed magnitude by factor (caps at Config.ball.maxSpeed)
+  increaseBallSpeed(factor = 1.25) {
+    if (!factor || factor <= 0) return;
+    this.ball.velocity.x *= factor;
+    this.ball.velocity.y *= factor;
+    const cap = Config.ball.maxSpeed || 9999;
+    // cap each component to avoid runaway speeds while preserving sign
+    this.ball.velocity.x = Math.sign(this.ball.velocity.x) * Math.min(Math.abs(this.ball.velocity.x), cap);
+    this.ball.velocity.y = Math.sign(this.ball.velocity.y) * Math.min(Math.abs(this.ball.velocity.y), cap);
   }
 
   checkWin() {
