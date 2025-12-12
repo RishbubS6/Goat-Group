@@ -53,7 +53,7 @@ comments: True
 // -----------------------------
 const Config = {
   canvas: { width: 800, height: 500 },
-  paddle: { width: 10, height: 100, speed: 7 },
+  paddle: { width: 10, height: 100, speed: 21 },
   ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3 },
   rules: { winningScore: 10 },
   keys: {
@@ -252,6 +252,13 @@ class Game {
     this.renderer.circle(this.ball);
     this.renderer.text(this.scores.p1, Config.canvas.width / 4, 50);
     this.renderer.text(this.scores.p2, 3 * Config.canvas.width / 4, 50);
+    // Display current ball speed for player reference
+    if (this.ball && this.ball.velocity) {
+      const vx = this.ball.velocity.x || 0;
+      const vy = this.ball.velocity.y || 0;
+      const speed = Math.sqrt(vx * vx + vy * vy);
+      this.renderer.text("Speed: " + speed.toFixed(2), Config.canvas.width - 200, 30);
+    }
     if (this.gameOver) {
       this.renderer.text("Game Over", Config.canvas.width / 2 - 80, Config.canvas.height / 2 - 20, Config.visuals.gameOver);
       const msg = this.scores.p1 >= Config.rules.winningScore ? "Player 1 Wins!" : "Player 2 Wins!";
