@@ -54,7 +54,7 @@ comments: True
 const Config = {
   canvas: { width: 800, height: 500 },
   paddle: { width: 10, height: 100, speed: 10.5 },
-  ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3 },
+  ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3, maxSpeed: 15 },
   bumper: { enabledAtScore: 9, radius: 40, color: "#888" },
   rules: { winningScore: 10 },
   keys: {
@@ -215,6 +215,8 @@ class Game {
         const overlap = (minDist - dist) + 0.5;
         this.ball.position.x += nx * overlap;
         this.ball.position.y += ny * overlap;
+        // enforce max speed after bumper reflection
+        this.capBallSpeed();
       }
     }
 
@@ -234,6 +236,8 @@ class Game {
       if (this.ball && this.ball.velocity && typeof this.ball.velocity.y === 'number') {
         this.ball.velocity.y = this.ball.velocity.y * 1.25;
       }
+      // enforce max speed
+      this.capBallSpeed();
     }
 
     const hitRight = this.ball.position.x + this.ball.radius > (Config.canvas.width - this.paddleRight.width) &&
@@ -251,6 +255,8 @@ class Game {
       if (this.ball && this.ball.velocity && typeof this.ball.velocity.y === 'number') {
         this.ball.velocity.y = this.ball.velocity.y * 1.25;
       }
+      // enforce max speed
+      this.capBallSpeed();
     }
 
     // Scoring
@@ -270,6 +276,20 @@ class Game {
       return true;
     }
     return false;
+  }
+
+  // Cap ball speed to Config.ball.maxSpeed while preserving direction
+  capBallSpeed() {
+    if (!this.ball || !this.ball.velocity) return;
+    const max = (Config.ball && Config.ball.maxSpeed) ? Config.ball.maxSpeed : 15;
+    const vx = this.ball.velocity.x || 0;
+    const vy = this.ball.velocity.y || 0;
+    const speed = Math.sqrt(vx * vx + vy * vy);
+    if (speed > max && speed > 0) {
+      const scale = max / speed;
+      this.ball.velocity.x = vx * scale;
+      this.ball.velocity.y = vy * scale;
+    }
   }
 
   draw() {
