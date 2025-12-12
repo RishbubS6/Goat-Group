@@ -33,7 +33,7 @@ permalink: /background
   obstacleImg.onerror = function() { obstacleImg.ready = false; };
 
   // Create HUD early so it's visible even if images are slow or fail to load.
-  if (!document.getElementById('bg-hud')) {
+    if (!document.getElementById('bg-hud')) {
     const earlyHud = document.createElement('div');
     earlyHud.id = 'bg-hud';
     Object.assign(earlyHud.style, {
@@ -41,7 +41,7 @@ permalink: /background
       color: 'white', background: 'rgba(0,0,0,0.65)', padding: '8px 12px', borderRadius: '8px', fontFamily: 'monospace',
       fontSize: '14px', lineHeight: '1.2'
     });
-    earlyHud.innerHTML = 'Score: <span id="rps-score">0</span> &nbsp; High: <span id="rps-high">0</span> &nbsp; Lives: <span id="rps-lives">0</span>';
+    earlyHud.innerHTML = 'Score: <span id="rps-score">0</span> &nbsp; High: <span id="rps-high">0</span> &nbsp; Lives: <span id="rps-lives" style="font-weight:700;color:#ffdd57">0</span>';
     document.body.appendChild(earlyHud);
   }
 
@@ -174,6 +174,34 @@ permalink: /background
         this.highScoreKey = 'bg_highscore';
         this.highScore = parseInt(localStorage.getItem(this.highScoreKey) || '0', 10) || 0;
 
+        // Periodic scoring: award points every N milliseconds while game is running
+        this.scoreTickValue = 10; // points awarded per tick
+        this.scoreTickMs = 3000; // 3 seconds
+        this._scoreTicker = null;
+        // start the periodic scoring ticker (guarded to prevent duplicates)
+        this._startScoreTicker = () => {
+          if (this._scoreTicker) return;
+          this._scoreTicker = setInterval(() => {
+            try {
+              if (!this.paused && this.lives > 0) {
+                this.score += this.scoreTickValue;
+                if (this.hudScore) this.hudScore.textContent = String(this.score);
+                // update high score if needed
+                if (this.score > this.highScore) {
+                  this.highScore = this.score;
+                  try { localStorage.setItem(this.highScoreKey, String(this.highScore)); } catch (e) { /* ignore storage errors */ }
+                  if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+                  this.pulseHigh();
+                }
+              }
+            } catch (err) {
+              // Defensive: don't let ticker throw and stop subsequent ticks
+              console.error('Score ticker error', err);
+            }
+          }, this.scoreTickMs);
+        };
+        this._stopScoreTicker = () => { if (this._scoreTicker) { clearInterval(this._scoreTicker); this._scoreTicker = null; } };
+
         // HUD (score + high score + lives) and retry button
         // If an "early" HUD was injected before images loaded, reuse it instead
         const existingHud = document.getElementById('bg-hud');
@@ -192,7 +220,7 @@ permalink: /background
             color: 'white', background: 'rgba(0,0,0,0.65)', padding: '8px 12px', borderRadius: '8px', fontFamily: 'monospace',
             fontSize: '14px', lineHeight: '1.2'
           });
-          this.hud.innerHTML = `Score: <span id="rps-score">0</span> &nbsp; High: <span id="rps-high">${this.highScore}</span> &nbsp; Lives: <span id="rps-lives">${this.lives}</span>`;
+          this.hud.innerHTML = `Score: <span id="rps-score">0</span> &nbsp; High: <span id="rps-high">${this.highScore}</span> &nbsp; Lives: <span id="rps-lives" style="font-weight:700;color:#ffdd57">${this.lives}</span>`;
           document.body.appendChild(this.hud);
           this.hudScore = this.hud.querySelector('#rps-score');
           this.hudHigh = this.hud.querySelector('#rps-high');
@@ -255,6 +283,29 @@ permalink: /background
         this.background.draw(this.ctx);
         this.player.update(this);
         this.player.draw(this.ctx);
+
+        // Canvas fallback: draw a visible Lives indicator on the canvas so it's always visible
+        try {
+          const text = `Lives: ${this.lives}`;
+          const fontSize = Math.max(14, Math.floor(this.width * 0.018));
+          this.ctx.save();
+          this.ctx.font = `${fontSize}px monospace`;
+          this.ctx.textBaseline = 'top';
+          const metrics = this.ctx.measureText(text);
+          const padX = 10;
+          const padY = 6;
+          const tx = 12;
+          const ty = 12;
+          // semi-opaque background for readability
+          this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          this.ctx.fillRect(tx - padX/2, ty - padY/2, metrics.width + padX, fontSize + padY);
+          // text
+          this.ctx.fillStyle = '#ffdd57';
+          this.ctx.fillText(text, tx, ty);
+          this.ctx.restore();
+        } catch (e) {
+          // ignore drawing errors
+        }
 
         // spawn obstacles
         this.spawnTimer--;
@@ -376,6 +427,8 @@ permalink: /background
       this.retryBtn.setAttribute('aria-hidden', 'true');
       this.retryBtn.textContent = 'Retry';
       this.paused = false;
+      // restart the periodic scoring ticker when the game resumes
+      if (typeof this._startScoreTicker === 'function') this._startScoreTicker();
       // restart loop
       this.gameLoop();
     };
