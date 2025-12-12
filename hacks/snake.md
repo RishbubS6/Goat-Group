@@ -57,27 +57,27 @@ permalink: /snake/
 
 <h2>Snake</h2>
 <div class="container">
-    <p class="fs-4">Score: <span id="score_value">0</span></p>
+    <p class="fs-4">Score: <span id="score_value">0</span> &nbsp;|&nbsp; High Score: <span id="high_score_value">0</span></p>
 
     <div class="container bg-secondary" style="text-align:center;">
         <!-- Main Menu -->
         <div id="menu" class="py-4 text-light">
             <p>Welcome to Snake, press <span style="background-color: #FFFFFF; color: #000000">space</span> to begin</p>
-            <a id="new_game" class="link-alert">new game</a>
-            <a id="setting_menu" class="link-alert">settings</a>
+            <a id="new_game" class="link-alert" href="#" role="button">new game</a>
+            <a id="setting_menu" class="link-alert" href="#" role="button">settings</a>
         </div>
         <!-- Game Over -->
         <div id="gameover" class="py-4 text-light">
             <p>Game Over, press <span style="background-color: #FFFFFF; color: #000000">space</span> to try again</p>
-            <a id="new_game1" class="link-alert">new game</a>
-            <a id="setting_menu1" class="link-alert">settings</a>
+            <a id="new_game1" class="link-alert" href="#" role="button">new game</a>
+            <a id="setting_menu1" class="link-alert" href="#" role="button">settings</a>
         </div>
         <!-- Play Screen -->
         <canvas id="snake" class="wrap" width="320" height="320" tabindex="1"></canvas>
         <!-- Settings Screen -->
         <div id="setting" class="py-4 text-light">
             <p>Settings Screen, press <span style="background-color: #FFFFFF; color: #000000">space</span> to go back to playing</p>
-            <a id="new_game2" class="link-alert">new game</a>
+            <a id="new_game2" class="link-alert" href="#" role="button">new game</a>
             <br>
             <p>Speed:
                 <input id="speed1" type="radio" name="speed" value="120" checked/>
@@ -161,23 +161,22 @@ permalink: /snake/
                     break;
             }
         }
-8:53
-/* Actions and Events  */
+    /* Actions and Events  */
         /////////////////////////////////////////////////////////////
         window.onload = function(){
-            // HTML Events to Functions
-            button_new_game.onclick = function(){newGame();};
-            button_new_game1.onclick = function(){newGame();};
-            button_new_game2.onclick = function(){newGame();};
-            button_setting_menu.onclick = function(){showScreen(SCREEN_SETTING);};
-            button_setting_menu1.onclick = function(){showScreen(SCREEN_SETTING);};
-            // speed
+            // HTML Events to Functions (use addEventListener + preventDefault)
+            button_new_game.addEventListener('click', function(e){ e.preventDefault(); newGame(); });
+            button_new_game1.addEventListener('click', function(e){ e.preventDefault(); newGame(); });
+            button_new_game2.addEventListener('click', function(e){ e.preventDefault(); newGame(); });
+            button_setting_menu.addEventListener('click', function(e){ e.preventDefault(); showScreen(SCREEN_SETTING); });
+            button_setting_menu1.addEventListener('click', function(e){ e.preventDefault(); showScreen(SCREEN_SETTING); });
+            // speed (default slow)
             setSnakeSpeed(150);
             for(let i = 0; i < speed_setting.length; i++){
                 speed_setting[i].addEventListener("click", function(){
-                    for(let i = 0; i < speed_setting.length; i++){
-                        if(speed_setting[i].checked){
-                            setSnakeSpeed(speed_setting[i].value);
+                    for(let j = 0; j < speed_setting.length; j++){
+                        if(speed_setting[j].checked){
+                            setSnakeSpeed(speed_setting[j].value);
                         }
                     }
                 });
@@ -195,10 +194,17 @@ permalink: /snake/
             }
             // activate window events
             window.addEventListener("keydown", function(evt) {
-                // spacebar detected
-                if(evt.code === "Space" && SCREEN !== SCREEN_SNAKE)
+                const isSpace = evt.code === "Space" || evt.key === " " || evt.key === "Spacebar" || evt.keyCode === 32;
+                if (isSpace && SCREEN !== SCREEN_SNAKE) {
+                    evt.preventDefault();
                     newGame();
-            }, true);
+                }
+            }, false);
+            // bind canvas key handler once (arrow keys) so canvas.focus() works
+            if (screen_snake && !screen_snake.__snakeKeybound) {
+                screen_snake.addEventListener('keydown', function(evt){ changeDir(evt.keyCode || evt.which || evt.code); });
+                screen_snake.__snakeKeybound = true;
+            }
         }
         /* Snake is on the Go (Driver Function)  */
         /////////////////////////////////////////////////////////////
@@ -255,10 +261,10 @@ permalink: /snake/
                 // draw new food immediately in red
                 activeDot(food.x, food.y, "#FF0000");
             }
-            // Repaint canvas
-            ctx.beginPath();
-            ctx.fillStyle = "royalblue";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Repaint canvas (lighter green background)
+                ctx.beginPath();
+                ctx.fillStyle = "#c9f2c4"; // lighter green
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
             // Paint snake
             for(let i = 0; i < snake.length; i++){
                 // snake segments in green
@@ -279,8 +285,8 @@ permalink: /snake/
             screen_snake.focus();
             // game score to zero
             score = 0;
-            // initialize session high score and update display
-            try{ highScore = parseInt(sessionStorage.getItem('snake_highscore')) || 0; }catch(e){ highScore = 0; }
+            // initialize persistent high score (localStorage) and update display
+            try{ highScore = parseInt(localStorage.getItem('snake_highscore')) || 0; }catch(e){ highScore = 0; }
             if(ele_highscore) ele_highscore.textContent = String(highScore);
             altScore(score);
             // initial snake
@@ -289,15 +295,12 @@ permalink: /snake/
             snake_next_dir = 1;
             // food on canvas
             addFood();
-            // activate canvas event
-            canvas.onkeydown = function(evt) {
-                changeDir(evt.keyCode);
-            }
+            // canvas key handling is bound once during initialization (see window.onload)
             mainLoop();
         }
         /* Key Inputs and Actions */
         /////////////////////////////////////////////////////////////
-        let changeDir = function(key){
+        function changeDir(key){
             // test key and switch direction
             switch(key) {
                 case 37:    // left arrow
@@ -345,10 +348,10 @@ permalink: /snake/
         /////////////////////////////////////////////////////////////
         let altScore = function(score_val){
             ele_score.textContent = String(score_val);
-            // update session high score if needed
+            // update persistent high score (localStorage) if needed
             if(score_val > highScore){
                 highScore = score_val;
-                try{ sessionStorage.setItem('snake_highscore', String(highScore)); }catch(e){}
+                try{ localStorage.setItem('snake_highscore', String(highScore)); }catch(e){}
                 if(ele_highscore) ele_highscore.textContent = String(highScore);
             }
         }
@@ -357,8 +360,9 @@ permalink: /snake/
         // 150 = slow
         // 100 = normal
         // 50 = fast
-        let setSnakeSpeed = function(speed_value){
-            snake_speed = speed_value;
+        function setSnakeSpeed(speed_value){
+            // ensure numeric value
+            snake_speed = parseInt(speed_value, 10) || 150;
         }
         //////////////////////////////////////////////////
         let setWall = function(wall_value){
