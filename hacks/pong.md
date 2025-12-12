@@ -60,7 +60,7 @@ const Config = {
   keys: {
     // TODO[Students]: Remap keys if desired
     p1Up: "w", p1Down: "s",
-    p2Up: "i", p2Down: "k"
+    p2Up: "ArrowUp", p2Down: "ArrowDown"
   },
   visuals: { bg: "#000", fg: "#fff", text: "#fff", gameOver: "red", win: "yellow" }
 };
