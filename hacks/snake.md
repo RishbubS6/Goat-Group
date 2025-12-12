@@ -161,8 +161,7 @@ permalink: /snake/
                     break;
             }
         }
-8:53
-/* Actions and Events  */
+    /* Actions and Events  */
         /////////////////////////////////////////////////////////////
         window.onload = function(){
             // HTML Events to Functions
