@@ -251,186 +251,189 @@ permalink: /background
           this.retryBtn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.resetGame(); } });
         }
 
-        // Input handling (WASD)
-        window.addEventListener('keydown', (e) => {
-          const k = e.key.toLowerCase();
-          if (k === 'w' || k === 'a' || k === 's' || k === 'd') {
-            this.player.keys[k] = true;
-            e.preventDefault();
-          }
-        });
-        window.addEventListener('keyup', (e) => {
-          const k = e.key.toLowerCase();
-          if (k === 'w' || k === 'a' || k === 's' || k === 'd') {
-            this.player.keys[k] = false;
-            e.preventDefault();
-          }
-        });
-      }
-
-      spawnObstacle() {
-        const r = 18 + Math.random() * 18;
-        const x = this.width + r + 10;
-        const y = 20 + Math.random() * (this.height - 40);
-        const speed = GameWorld.gameSpeed * (1 + Math.random() * 0.6) + 1;
-        this.obstacles.push(new Obstacle(x, y, r, -speed, this.obstacleImage));
-      }
-
-      gameLoop() {
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        // update/draw background and player
-        this.background.update();
-        this.background.draw(this.ctx);
-        this.player.update(this);
-        this.player.draw(this.ctx);
-
-        // Canvas fallback: draw a visible Lives indicator on the canvas so it's always visible
-        try {
-          const text = `Lives: ${this.lives}`;
-          const fontSize = Math.max(14, Math.floor(this.width * 0.018));
-          this.ctx.save();
-          this.ctx.font = `${fontSize}px monospace`;
-          this.ctx.textBaseline = 'top';
-          const metrics = this.ctx.measureText(text);
-          const padX = 10;
-          const padY = 6;
-          const tx = 12;
-          const ty = 12;
-          // semi-opaque background for readability
-          this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
-          this.ctx.fillRect(tx - padX/2, ty - padY/2, metrics.width + padX, fontSize + padY);
-          // text
-          this.ctx.fillStyle = '#ffdd57';
-          this.ctx.fillText(text, tx, ty);
-          this.ctx.restore();
-        } catch (e) {
-          // ignore drawing errors
+          // Input handling (WASD)
+          window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || k === 'a' || k === 's' || k === 'd') {
+              this.player.keys[k] = true;
+              e.preventDefault();
+            }
+          });
+          window.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || k === 'a' || k === 's' || k === 'd') {
+              this.player.keys[k] = false;
+              e.preventDefault();
+            }
+          });
         }
 
-        // spawn obstacles
-        this.spawnTimer--;
-        if (this.spawnTimer <= 0) {
-          this.spawnObstacle();
-          this.spawnTimer = this.spawnInterval + Math.floor(Math.random() * 40) - 20;
+        spawnObstacle() {
+          const r = 18 + Math.random() * 18;
+          const x = this.width + r + 10;
+          const y = 20 + Math.random() * (this.height - 40);
+          const speed = GameWorld.gameSpeed * (1 + Math.random() * 0.6) + 1;
+          this.obstacles.push(new Obstacle(x, y, r, -speed, this.obstacleImage));
         }
 
-  // update/draw obstacles and check collisions
-  for (let i = this.obstacles.length - 1; i >= 0; i--) {
-          const obs = this.obstacles[i];
-          obs.update();
-          obs.draw(this.ctx);
-          if (obs.x + obs.r < -50) {
-            // passed off screen: count as dodged
-            this.obstacles.splice(i, 1);
-            this.score += 1;
-            // update high score if needed
-            if (this.score > this.highScore) {
-              this.highScore = this.score;
-              try { localStorage.setItem(this.highScoreKey, String(this.highScore)); } catch (e) { /* ignore storage errors */ }
-              // update HUD and visual indicator for new high
+        gameLoop() {
+          this.ctx.clearRect(0, 0, this.width, this.height);
+          // update/draw background and player
+          this.background.update();
+          this.background.draw(this.ctx);
+          this.player.update(this);
+          this.player.draw(this.ctx);
+
+          // Canvas fallback: draw a visible Lives indicator on the canvas so it's always visible
+          try {
+            const text = `Lives: ${this.lives}`;
+            const fontSize = Math.max(14, Math.floor(this.width * 0.018));
+            this.ctx.save();
+            this.ctx.font = `${fontSize}px monospace`;
+            this.ctx.textBaseline = 'top';
+            const metrics = this.ctx.measureText(text);
+            const padX = 10;
+            const padY = 6;
+            const tx = 12;
+            const ty = 12;
+            // semi-opaque background for readability
+            this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            this.ctx.fillRect(tx - padX/2, ty - padY/2, metrics.width + padX, fontSize + padY);
+            // text
+            this.ctx.fillStyle = '#ffdd57';
+            this.ctx.fillText(text, tx, ty);
+            this.ctx.restore();
+          } catch (e) {
+            // ignore drawing errors
+          }
+
+          // spawn obstacles
+          this.spawnTimer--;
+          if (this.spawnTimer <= 0) {
+            this.spawnObstacle();
+            this.spawnTimer = this.spawnInterval + Math.floor(Math.random() * 40) - 20;
+          }
+
+    // update/draw obstacles and check collisions
+    for (let i = this.obstacles.length - 1; i >= 0; i--) {
+            const obs = this.obstacles[i];
+            obs.update();
+            obs.draw(this.ctx);
+            if (obs.x + obs.r < -50) {
+              // passed off screen: count as dodged
+              this.obstacles.splice(i, 1);
+              this.score += 1;
+              // update high score if needed
+              if (this.score > this.highScore) {
+                this.highScore = this.score;
+                try { localStorage.setItem(this.highScoreKey, String(this.highScore)); } catch (e) { /* ignore storage errors */ }
+                // update HUD and visual indicator for new high
+                if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+                this.pulseHigh();
+              }
+            }
+
+            if (!this.player.hit && this.checkCollision(obs, this.player)) {
+              // on collision: decrement lives, reset score, pause and show retry
+              this.player.hit = true;
+              console.log('Collision! You were hit by an obstacle.');
+              this.flashPlayer();
+              // remove the hitting obstacle so it doesn't keep colliding
+              this.obstacles.splice(i, 1);
+              this.lives -= 1;
+              this.score = 0; // restart score per user request
+              if (this.hudScore) this.hudScore.textContent = String(this.score);
               if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
-              this.pulseHigh();
+              if (this.hudLives) this.hudLives.textContent = String(this.lives);
+              this.paused = true;
+              this.retryBtn.style.display = 'block';
+              this.retryBtn.setAttribute('aria-hidden', 'false');
+              // if out of lives, show game over on the button
+              if (this.lives <= 0) {
+                this.retryBtn.textContent = 'Game Over - Restart';
+              } else {
+                this.retryBtn.textContent = 'Retry';
+              }
+              break;
             }
           }
 
-          if (!this.player.hit && this.checkCollision(obs, this.player)) {
-            // on collision: decrement lives, reset score, pause and show retry
-            this.player.hit = true;
-            console.log('Collision! You were hit by an obstacle.');
-            this.flashPlayer();
-            // remove the hitting obstacle so it doesn't keep colliding
-            this.obstacles.splice(i, 1);
-            this.lives -= 1;
-            this.score = 0; // restart score per user request
-            if (this.hudScore) this.hudScore.textContent = String(this.score);
-            if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
-            if (this.hudLives) this.hudLives.textContent = String(this.lives);
-            this.paused = true;
-            this.retryBtn.style.display = 'block';
-            this.retryBtn.setAttribute('aria-hidden', 'false');
-            // if out of lives, show game over on the button
-            if (this.lives <= 0) {
-              this.retryBtn.textContent = 'Game Over - Restart';
-            } else {
-              this.retryBtn.textContent = 'Retry';
-            }
+    // update HUD score & lives every frame
+    if (this.hudScore) this.hudScore.textContent = String(this.score);
+    if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+    if (this.hudLives) this.hudLives.textContent = String(this.lives);
+
+          if (!this.paused) {
+            requestAnimationFrame(this.gameLoop.bind(this));
           }
         }
 
-  // update HUD score & lives every frame
-  if (this.hudScore) this.hudScore.textContent = String(this.score);
-  if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
-        if (!this.paused) {
-          requestAnimationFrame(this.gameLoop.bind(this));
+        flashPlayer() {
+          const ctx = this.ctx;
+          const p = this.player;
+          ctx.save();
+          ctx.fillStyle = 'rgba(255,0,0,0.25)';
+          ctx.fillRect(p.x, p.y, p.width, p.height);
+          ctx.restore();
+        }
+
+        // briefly pulse the high score element to indicate a new high
+        pulseHigh() {
+          if (!this.hudHigh) return;
+          const el = this.hudHigh;
+          const orig = el.style.transition;
+          el.style.transition = 'transform 0.25s ease, color 0.25s ease';
+          el.style.transform = 'scale(1.25)';
+          el.style.color = '#ffd700';
+          setTimeout(() => { el.style.transform = ''; el.style.color = ''; el.style.transition = orig || ''; }, 500);
+        }
+
+        checkCollision(obs, player) {
+          const cx = obs.x;
+          const cy = obs.y;
+          const rx = player.x;
+          const ry = player.y;
+          const rw = player.width;
+          const rh = player.height;
+          const closestX = Math.max(rx, Math.min(cx, rx + rw));
+          const closestY = Math.max(ry, Math.min(cy, ry + rh));
+          const dx = cx - closestX;
+          const dy = cy - closestY;
+          return (dx * dx + dy * dy) < (obs.r * obs.r);
+        }
+
+        start() {
+          this.gameLoop();
         }
       }
 
-      flashPlayer() {
-        const ctx = this.ctx;
-        const p = this.player;
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,0,0,0.25)';
-        ctx.fillRect(p.x, p.y, p.width, p.height);
-            ---
-        ctx.restore();
-      }
-
-      // briefly pulse the high score element to indicate a new high
-      pulseHigh() {
-        if (!this.hudHigh) return;
-        const el = this.hudHigh;
-        const orig = el.style.transition;
-        el.style.transition = 'transform 0.25s ease, color 0.25s ease';
-        el.style.transform = 'scale(1.25)';
-        el.style.color = '#ffd700';
-        setTimeout(() => { el.style.transform = ''; el.style.color = ''; el.style.transition = orig || ''; }, 500);
-      }
-
-      checkCollision(obs, player) {
-        const cx = obs.x;
-        const cy = obs.y;
-        const rx = player.x;
-        const ry = player.y;
-        const rw = player.width;
-        const rh = player.height;
-        const closestX = Math.max(rx, Math.min(cx, rx + rw));
-        const closestY = Math.max(ry, Math.min(cy, ry + rh));
-        const dx = cx - closestX;
-        const dy = cy - closestY;
-        return (dx * dx + dy * dy) < (obs.r * obs.r);
-      }
-
-      start() {
+      // reset game state and resume
+      GameWorld.prototype.resetGame = function() {
+        // clear obstacles, reset player flag, reset score, hide retry button and resume
+        this.obstacles = [];
+        this.player.hit = false;
+        // center player
+        this.player.x = (this.width - this.player.width) / 2;
+        this.player.y = (this.height - this.player.height) / 2;
+        // if out of lives, restart lives
+        if (this.lives <= 0) {
+          this.lives = this.initialLives;
+        }
+        this.score = 0;
+        if (this.hudScore) this.hudScore.textContent = String(this.score);
+        if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+        if (this.hudLives) this.hudLives.textContent = String(this.lives);
+        this.retryBtn.style.display = 'none';
+        this.retryBtn.setAttribute('aria-hidden', 'true');
+        this.retryBtn.textContent = 'Retry';
+        this.paused = false;
+        // restart the periodic scoring ticker when the game resumes
+        if (typeof this._startScoreTicker === 'function') this._startScoreTicker();
+        // restart loop
         this.gameLoop();
-      }
+      };
+
+      const world = new GameWorld(backgroundImg, spriteImg);
+      world.start();
     }
-
-    // reset game state and resume
-    GameWorld.prototype.resetGame = function() {
-      // clear obstacles, reset player flag, reset score, hide retry button and resume
-      this.obstacles = [];
-      this.player.hit = false;
-      // center player
-      this.player.x = (this.width - this.player.width) / 2;
-      this.player.y = (this.height - this.player.height) / 2;
-      // if out of lives, restart lives
-      if (this.lives <= 0) {
-        this.lives = this.initialLives;
-      }
-      this.score = 0;
-      if (this.hudScore) this.hudScore.textContent = String(this.score);
-      if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
-      if (this.hudLives) this.hudLives.textContent = String(this.lives);
-      this.retryBtn.style.display = 'none';
-      this.retryBtn.setAttribute('aria-hidden', 'true');
-      this.retryBtn.textContent = 'Retry';
-      this.paused = false;
-      // restart the periodic scoring ticker when the game resumes
-      if (typeof this._startScoreTicker === 'function') this._startScoreTicker();
-      // restart loop
-      this.gameLoop();
-    };
-
-    const world = new GameWorld(backgroundImg, spriteImg);
-    world.start();
-  }
+</script>
