@@ -1,13 +1,8 @@
-
 ---
-title: JS Calculator
-comments: true
-hide: true
 layout: opencs
-description: A common way to become familiar with a language is to build a calculator.  This calculator shows off button with actions.
-permalink: /calculator
+title: Calculator
+permalink: /calculator/
 ---
-
 <!-- 
 Hack 0: Right justify result
 Hack 1: Test conditions on small, big, and decimal numbers, report on findings. Fix issues.

@@ -1,3 +1,8 @@
+---
+layout: opencs
+title: Blackjack
+permalink: /blackjack/
+---
 <script>
 const dealerCardsEl = document.getElementById("dealer-cards");
 const playerCardsEl = document.getElementById("player-cards");
