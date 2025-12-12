@@ -12,6 +12,10 @@ comments: True
 ## Pong Game Demo
 
 <div class="game-canvas-container" style="text-align:center;">
+  <div style="margin-bottom:12px;">
+    <button id="startPvP" style="margin-right:8px; padding:8px 16px; font-size:16px;">Start PvP</button>
+    <button id="startAI" style="padding:8px 16px; font-size:16px;">Start AI</button>
+  </div>
   <canvas id="pongCanvas" width="800" height="500"></canvas>
   <br>
   <button id="restartBtn">Restart Game</button>
@@ -156,11 +160,12 @@ class Renderer {
 }
 
 class Game {
-  constructor(canvasEl, restartBtn) {
+  constructor(canvasEl, restartBtn, opts = {}) {
     // Canvas
     this.canvas = canvasEl;
     this.ctx = canvasEl.getContext('2d');
     this.renderer = new Renderer(this.ctx);
+    this.ai = !!opts.ai;
 
     // Systems
     this.input = new Input();
@@ -192,9 +197,25 @@ class Game {
     // Player 1 controls
     if (this.input.isDown(Config.keys.p1Up)) this.paddleLeft.move(-this.paddleLeft.speed);
     if (this.input.isDown(Config.keys.p1Down)) this.paddleLeft.move(this.paddleLeft.speed);
-    // Player 2 controls (human). Swap to AI per TODO above.
-    if (this.input.isDown(Config.keys.p2Up)) this.paddleRight.move(-this.paddleRight.speed);
-    if (this.input.isDown(Config.keys.p2Down)) this.paddleRight.move(this.paddleRight.speed);
+    // Player 2: either human or simple AI
+    if (this.ai) {
+      this.updateAI();
+    } else {
+      if (this.input.isDown(Config.keys.p2Up)) this.paddleRight.move(-this.paddleRight.speed);
+      if (this.input.isDown(Config.keys.p2Down)) this.paddleRight.move(this.paddleRight.speed);
+    }
+  }
+
+  // Simple AI: track ball Y and move paddle toward it (with small deadzone)
+  updateAI() {
+    if (!this.ball) return;
+    const centerY = this.paddleRight.position.y + this.paddleRight.height / 2;
+    const diff = this.ball.position.y - centerY;
+    const deadzone = 6;
+    if (Math.abs(diff) <= deadzone) return;
+    const dir = diff > 0 ? 1 : -1;
+    // move at paddle speed but scaled slightly for fairness
+    this.paddleRight.move(dir * this.paddleRight.speed * 0.9);
   }
 
   update() {
@@ -348,24 +369,42 @@ class Game {
 }
 
 // -------------------------------
-// Bootstrapping
+// Bootstrapping (start via buttons)
 // -------------------------------
 const canvas = document.getElementById('pongCanvas');
 const restartBtn = document.getElementById('restartBtn');
+const startPvPBtn = document.getElementById('startPvP');
+const startAIBtn = document.getElementById('startAI');
 
 // Ensure canvas matches Config every load (keeps HTML in sync)
 canvas.width = Config.canvas.width;
 canvas.height = Config.canvas.height;
 
-const game = new Game(canvas, restartBtn);
-game.loop();
+let game = null;
+
+function startGameWithAI(useAI) {
+  if (game) {
+    // if already running, just restart and set AI flag
+    game.ai = !!useAI;
+    game.restart();
+    return;
+  }
+  game = new Game(canvas, restartBtn, { ai: !!useAI });
+  // hide start buttons once started
+  startPvPBtn.style.display = 'none';
+  startAIBtn.style.display = 'none';
+  game.loop();
+}
+
+startPvPBtn.addEventListener('click', function(e){ e.preventDefault(); startGameWithAI(false); canvas.focus(); });
+startAIBtn.addEventListener('click', function(e){ e.preventDefault(); startGameWithAI(true); canvas.focus(); });
 
 // -----------------------------------------
 // Student Challenges (inline TODO checklist)
 // -----------------------------------------
 // 1) Make it YOUR game: change colors in Config.visuals, dimensions/speeds in Config.
 // 2) Add AI: implement simple tracking for right paddle in handleInput (hint above).
-// 3) Rally speed-up: every time the ball hits a paddle, slightly increase |velocity.x|.
+// 3) Rally speed-up: every time the ball hits a paddle, slightly increase |velocity.x|. - Complete
 // 4) Center line + score SFX: draw a dashed midline; play an audio on score.
 // 5) Power-ups: occasionally spawn a small rectangle; when ball hits it, apply effect (bigger paddle? faster ball?).
 // 6) Pause/Resume: map a key to toggle pause state in Game and skip updates when paused.
