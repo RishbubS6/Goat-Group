@@ -53,8 +53,9 @@ comments: True
 // -----------------------------
 const Config = {
   canvas: { width: 800, height: 500 },
-  paddle: { width: 10, height: 100, speed: 21 },
+  paddle: { width: 10, height: 100, speed: 10.5 },
   ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3 },
+  bumper: { enabledAtScore: 9, radius: 40, color: "#888" },
   rules: { winningScore: 10 },
   keys: {
     // TODO[Students]: Remap keys if desired
@@ -191,6 +192,32 @@ class Game {
     if (this.gameOver) return;
     this.ball.update();
 
+    // --- bumper collision (active once either player reaches configured score) ---
+    const bumperActive = (this.scores.p1 >= Config.bumper.enabledAtScore || this.scores.p2 >= Config.bumper.enabledAtScore);
+    if (bumperActive) {
+      const cx = Config.canvas.width / 2;
+      const cy = Config.canvas.height / 2;
+      const br = Config.bumper.radius;
+      const dx = this.ball.position.x - cx;
+      const dy = this.ball.position.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = br + this.ball.radius;
+      if (dist <= minDist) {
+        // normal vector from bumper center to ball
+        const inv = dist === 0 ? 1 : 1 / dist;
+        const nx = dx * inv;
+        const ny = dy * inv;
+        // reflect velocity around normal: v' = v - 2*(v·n)*n
+        const vdotn = this.ball.velocity.x * nx + this.ball.velocity.y * ny;
+        this.ball.velocity.x = this.ball.velocity.x - 2 * vdotn * nx;
+        this.ball.velocity.y = this.ball.velocity.y - 2 * vdotn * ny;
+        // push ball out of bumper to avoid sticking
+        const overlap = (minDist - dist) + 0.5;
+        this.ball.position.x += nx * overlap;
+        this.ball.position.y += ny * overlap;
+      }
+    }
+
     // Paddle collisions with ball
     const hitLeft = this.ball.position.x - this.ball.radius < this.paddleLeft.width &&
       this.ball.position.y > this.paddleLeft.position.y &&
@@ -249,6 +276,14 @@ class Game {
     this.renderer.clear(Config.canvas.width, Config.canvas.height);
     this.renderer.rect(this.paddleLeft.rect());
     this.renderer.rect(this.paddleRight.rect());
+    // draw bumper if active (draw before ball so ball is visible on top)
+    const bumperActive = (this.scores.p1 >= Config.bumper.enabledAtScore || this.scores.p2 >= Config.bumper.enabledAtScore);
+    if (bumperActive) {
+      const cx = Config.canvas.width / 2;
+      const cy = Config.canvas.height / 2;
+      const br = Config.bumper.radius;
+      this.renderer.circle({ position: { x: cx, y: cy }, radius: br }, Config.bumper.color);
+    }
     this.renderer.circle(this.ball);
     this.renderer.text(this.scores.p1, Config.canvas.width / 4, 50);
     this.renderer.text(this.scores.p2, 3 * Config.canvas.width / 4, 50);
