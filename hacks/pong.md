@@ -209,6 +209,9 @@ class Game {
   // Simple AI: track ball Y and move paddle toward it (with small deadzone)
   updateAI() {
     if (!this.ball) return;
+    // Only track when the ball is on the AI's half (right side)
+    const midX = Config.canvas.width / 2;
+    if (this.ball.position.x < midX) return;
     const centerY = this.paddleRight.position.y + this.paddleRight.height / 2;
     const diff = this.ball.position.y - centerY;
     const deadzone = 6;
@@ -324,6 +327,18 @@ class Game {
 
   draw() {
     this.renderer.clear(Config.canvas.width, Config.canvas.height);
+    // dashed center line to mark halves
+    this.ctx.save();
+    this.ctx.strokeStyle = Config.visuals.fg;
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([10, 6]);
+    const centerX = Config.canvas.width / 2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(centerX, 0);
+    this.ctx.lineTo(centerX, Config.canvas.height);
+    this.ctx.stroke();
+    this.ctx.setLineDash([]);
+    this.ctx.restore();
     this.renderer.rect(this.paddleLeft.rect());
     this.renderer.rect(this.paddleRight.rect());
     // draw bumper if active (draw before ball so ball is visible on top)
