@@ -174,7 +174,11 @@ class Game {
     const { width, height, speed } = Config.paddle;
     this.paddleLeft = new Paddle(0, (Config.canvas.height - height) / 2, width, height, speed, Config.canvas.height);
     this.paddleRight = new Paddle(Config.canvas.width - width, (Config.canvas.height - height) / 2, width, height, speed, Config.canvas.height);
-    this.ball = new Ball(Config.ball.radius, Config.canvas.width, Config.canvas.height);
+    // support multiple balls (start with one)
+    this.balls = [ new Ball(Config.ball.radius, Config.canvas.width, Config.canvas.height) ];
+
+    // track last multi-ball trigger per player so we only spawn when they *reach* a multiple of 3
+    this.multiTriggered = { p1: 0, p2: 0 };
 
     // Rules/state
     this.scores = { p1: 0, p2: 0 };
@@ -208,22 +212,30 @@ class Game {
 
   // Simple AI: track ball Y and move paddle toward it (with small deadzone)
   updateAI() {
-    if (!this.ball) return;
-    // Only track when the ball is on the AI's half (right side)
+    if (!this.balls || this.balls.length === 0) return;
+    // Only track balls that are on the AI's half (right side)
     const midX = Config.canvas.width / 2;
-    if (this.ball.position.x < midX) return;
+    const candidates = this.balls.filter(b => b.position.x >= midX);
+    if (candidates.length === 0) return;
+    // pick the ball closest vertically to the paddle center
+    let target = candidates[0];
+    let bestDist = Math.abs(target.position.y - (this.paddleRight.position.y + this.paddleRight.height / 2));
+    for (let i = 1; i < candidates.length; i++) {
+      const d = Math.abs(candidates[i].position.y - (this.paddleRight.position.y + this.paddleRight.height / 2));
+      if (d < bestDist) { target = candidates[i]; bestDist = d; }
+    }
     const centerY = this.paddleRight.position.y + this.paddleRight.height / 2;
-    const diff = this.ball.position.y - centerY;
+    const diff = target.position.y - centerY;
     const deadzone = 6;
     if (Math.abs(diff) <= deadzone) return;
     const dir = diff > 0 ? 1 : -1;
-    // move at paddle speed but scaled slightly for fairness
     this.paddleRight.move(dir * this.paddleRight.speed * 0.9);
   }
 
   update() {
     if (this.gameOver) return;
-    this.ball.update();
+    // Update all balls
+    for (const b of this.balls) b.update();
 
     // --- bumper collision (active once combined score reaches configured value) ---
     const bumperActive = ((this.scores.p1 + this.scores.p2) >= Config.bumper.enabledAtScore);
@@ -231,74 +243,99 @@ class Game {
       const cx = Config.canvas.width / 2;
       const cy = Config.canvas.height / 2;
       const br = Config.bumper.radius;
-      const dx = this.ball.position.x - cx;
-      const dy = this.ball.position.y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const minDist = br + this.ball.radius;
-      if (dist <= minDist) {
-        // normal vector from bumper center to ball
-        const inv = dist === 0 ? 1 : 1 / dist;
-        const nx = dx * inv;
-        const ny = dy * inv;
-        // reflect velocity around normal: v' = v - 2*(v·n)*n
-        const vdotn = this.ball.velocity.x * nx + this.ball.velocity.y * ny;
-        this.ball.velocity.x = this.ball.velocity.x - 2 * vdotn * nx;
-        this.ball.velocity.y = this.ball.velocity.y - 2 * vdotn * ny;
-        // push ball out of bumper to avoid sticking
-        const overlap = (minDist - dist) + 0.5;
-        this.ball.position.x += nx * overlap;
-        this.ball.position.y += ny * overlap;
-        // enforce max speed after bumper reflection
-        this.capBallSpeed(10);
+      for (const b of this.balls) {
+        const dx = b.position.x - cx;
+        const dy = b.position.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const minDist = br + b.radius;
+        if (dist <= minDist) {
+          const inv = dist === 0 ? 1 : 1 / dist;
+          const nx = dx * inv;
+          const ny = dy * inv;
+          const vdotn = b.velocity.x * nx + b.velocity.y * ny;
+          b.velocity.x = b.velocity.x - 2 * vdotn * nx;
+          b.velocity.y = b.velocity.y - 2 * vdotn * ny;
+          const overlap = (minDist - dist) + 0.5;
+          b.position.x += nx * overlap;
+          b.position.y += ny * overlap;
+          this.capBallSpeedFor(b);
+        }
       }
     }
 
-    // Paddle collisions with ball
-    const hitLeft = this.ball.position.x - this.ball.radius < this.paddleLeft.width &&
-      this.ball.position.y > this.paddleLeft.position.y &&
-      this.ball.position.y < this.paddleLeft.position.y + this.paddleLeft.height;
+    // Paddle collisions & scoring for each ball
+    for (const b of this.balls) {
+      // paddle hits
+      const hitLeft = b.position.x - b.radius < this.paddleLeft.width &&
+        b.position.y > this.paddleLeft.position.y &&
+        b.position.y < this.paddleLeft.position.y + this.paddleLeft.height;
+      if (hitLeft) {
+        b.velocity.x *= -1;
+        const delta = b.position.y - (this.paddleLeft.position.y + this.paddleLeft.height / 2);
+        b.velocity.y = delta * Config.ball.spinFactor;
+        if (typeof b.velocity.x === 'number') b.velocity.x = b.velocity.x * 1.25;
+        if (typeof b.velocity.y === 'number') b.velocity.y = b.velocity.y * 1.25;
+        this.capBallSpeedFor(b);
+      }
 
-    if (hitLeft) {
-      this.ball.velocity.x *= -1;
-      const delta = this.ball.position.y - (this.paddleLeft.position.y + this.paddleLeft.height / 2);
-      this.ball.velocity.y = delta * Config.ball.spinFactor; // "spin"
-      // Increase ball speed by 1.25x on paddle hit (preserve numeric safety)
-      if (this.ball && this.ball.velocity && typeof this.ball.velocity.x === 'number') {
-        this.ball.velocity.x = this.ball.velocity.x * 1.25;
+      const hitRight = b.position.x + b.radius > (Config.canvas.width - this.paddleRight.width) &&
+        b.position.y > this.paddleRight.position.y &&
+        b.position.y < this.paddleRight.position.y + this.paddleRight.height;
+      if (hitRight) {
+        b.velocity.x *= -1;
+        const delta = b.position.y - (this.paddleRight.position.y + this.paddleRight.height / 2);
+        b.velocity.y = delta * Config.ball.spinFactor;
+        if (typeof b.velocity.x === 'number') b.velocity.x = b.velocity.x * 1.25;
+        if (typeof b.velocity.y === 'number') b.velocity.y = b.velocity.y * 1.25;
+        this.capBallSpeedFor(b);
       }
-      if (this.ball && this.ball.velocity && typeof this.ball.velocity.y === 'number') {
-        this.ball.velocity.y = this.ball.velocity.y * 1.25;
+
+      // scoring per-ball
+      if (b.position.x - b.radius < 0) {
+        this.scores.p2++;
+        this.checkWin() || b.reset();
+      } else if (b.position.x + b.radius > Config.canvas.width) {
+        this.scores.p1++;
+        this.checkWin() || b.reset();
       }
-      // enforce max speed
-      this.capBallSpeed();
     }
 
-    const hitRight = this.ball.position.x + this.ball.radius > (Config.canvas.width - this.paddleRight.width) &&
-      this.ball.position.y > this.paddleRight.position.y &&
-      this.ball.position.y < this.paddleRight.position.y + this.paddleRight.height;
+    // Multi-ball triggers: spawn when an individual player reaches a multiple of 3
+    const p1Multiple = (this.scores.p1 > 0 && this.scores.p1 % 3 === 0);
+    const p2Multiple = (this.scores.p2 > 0 && this.scores.p2 % 3 === 0);
 
-    if (hitRight) {
-      this.ball.velocity.x *= -1;
-      const delta = this.ball.position.y - (this.paddleRight.position.y + this.paddleRight.height / 2);
-      this.ball.velocity.y = delta * Config.ball.spinFactor;
-      // Increase ball speed by 1.25x on paddle hit (preserve numeric safety)
-      if (this.ball && this.ball.velocity && typeof this.ball.velocity.x === 'number') {
-        this.ball.velocity.x = this.ball.velocity.x * 1.25;
-      }
-      if (this.ball && this.ball.velocity && typeof this.ball.velocity.y === 'number') {
-        this.ball.velocity.y = this.ball.velocity.y * 1.25;
-      }
-      // enforce max speed
-      this.capBallSpeed();
+    // If a player just reached a new multiple of three and we currently have a single ball, spawn a second ball
+    if (((p1Multiple && this.multiTriggered.p1 !== this.scores.p1) || (p2Multiple && this.multiTriggered.p2 !== this.scores.p2)) && this.balls.length === 1) {
+      // mark which player triggered so we don't re-trigger until their score changes
+      if (p1Multiple) this.multiTriggered.p1 = this.scores.p1;
+      if (p2Multiple) this.multiTriggered.p2 = this.scores.p2;
+      const b1 = this.balls[0];
+      b1.position.x = Config.canvas.width / 2;
+      b1.position.y = Config.canvas.height / 2;
+      // send original ball toward the opposite side to vary play
+      b1.velocity.x = -Math.sign(b1.velocity.x || 1) * Math.abs(Config.ball.baseSpeedX);
+      b1.velocity.y = (Math.random() * (2 * Config.ball.maxRandomY)) - Config.ball.maxRandomY;
+      const b2 = new Ball(Config.ball.radius, Config.canvas.width, Config.canvas.height);
+      b2.position.x = Config.canvas.width / 2;
+      b2.position.y = Config.canvas.height / 2;
+      b2.velocity.x = Math.sign(b1.velocity.x || 1) * Math.abs(Config.ball.baseSpeedX);
+      b2.velocity.y = (Math.random() * (2 * Config.ball.maxRandomY)) - Config.ball.maxRandomY;
+      this.balls.push(b2);
     }
 
-    // Scoring
-    if (this.ball.position.x - this.ball.radius < 0) {
-      this.scores.p2++;
-      this.checkWin() || this.ball.reset();
-    } else if (this.ball.position.x + this.ball.radius > Config.canvas.width) {
-      this.scores.p1++;
-      this.checkWin() || this.ball.reset();
+    // Remove extra ball when the triggering condition has passed (i.e., no player currently at the triggered score)
+    if (this.balls.length > 1) {
+      const keepP1 = (this.multiTriggered.p1 === this.scores.p1);
+      const keepP2 = (this.multiTriggered.p2 === this.scores.p2);
+      if (!keepP1 && !keepP2) {
+        // return to single ball
+        const keep = this.balls[0];
+        keep.position.x = Config.canvas.width / 2;
+        keep.position.y = Config.canvas.height / 2;
+        keep.velocity.x = Math.sign(keep.velocity.x || 1) * Config.ball.baseSpeedX;
+        keep.velocity.y = 0;
+        this.balls = [keep];
+      }
     }
   }
 
@@ -313,15 +350,32 @@ class Game {
 
   // Cap ball speed to Config.ball.maxSpeed while preserving direction
   capBallSpeed() {
-    if (!this.ball || !this.ball.velocity) return;
     const max = (Config.ball && Config.ball.maxSpeed) ? Config.ball.maxSpeed : 15;
-    const vx = this.ball.velocity.x || 0;
-    const vy = this.ball.velocity.y || 0;
+    if (!this.balls || this.balls.length === 0) return;
+    for (const ball of this.balls) {
+      if (!ball || !ball.velocity) continue;
+      const vx = ball.velocity.x || 0;
+      const vy = ball.velocity.y || 0;
+      const speed = Math.sqrt(vx * vx + vy * vy);
+      if (speed > max && speed > 0) {
+        const scale = max / speed;
+        ball.velocity.x = vx * scale;
+        ball.velocity.y = vy * scale;
+      }
+    }
+  }
+
+  // Cap speed for a specific ball object
+  capBallSpeedFor(ball) {
+    if (!ball || !ball.velocity) return;
+    const max = (Config.ball && Config.ball.maxSpeed) ? Config.ball.maxSpeed : 15;
+    const vx = ball.velocity.x || 0;
+    const vy = ball.velocity.y || 0;
     const speed = Math.sqrt(vx * vx + vy * vy);
     if (speed > max && speed > 0) {
       const scale = max / speed;
-      this.ball.velocity.x = vx * scale;
-      this.ball.velocity.y = vy * scale;
+      ball.velocity.x = vx * scale;
+      ball.velocity.y = vy * scale;
     }
   }
 
@@ -349,16 +403,19 @@ class Game {
       const br = Config.bumper.radius;
       this.renderer.circle({ position: { x: cx, y: cy }, radius: br }, Config.bumper.color);
     }
-    this.renderer.circle(this.ball);
+    // draw all balls
+    let maxSpeed = 0;
+    for (const b of this.balls) {
+      this.renderer.circle(b);
+      const vx = b.velocity.x || 0;
+      const vy = b.velocity.y || 0;
+      const sp = Math.sqrt(vx * vx + vy * vy);
+      if (sp > maxSpeed) maxSpeed = sp;
+    }
     this.renderer.text(this.scores.p1, Config.canvas.width / 4, 50);
     this.renderer.text(this.scores.p2, 3 * Config.canvas.width / 4, 50);
-    // Display current ball speed for player reference
-    if (this.ball && this.ball.velocity) {
-      const vx = this.ball.velocity.x || 0;
-      const vy = this.ball.velocity.y || 0;
-      const speed = Math.sqrt(vx * vx + vy * vy);
-      this.renderer.text("Speed: " + speed.toFixed(2), Config.canvas.width - 200, 30);
-    }
+    // Display current (fastest) ball speed for player reference
+    this.renderer.text("Speed: " + maxSpeed.toFixed(2), Config.canvas.width - 200, 30);
     if (this.gameOver) {
       this.renderer.text("Game Over", Config.canvas.width / 2 - 80, Config.canvas.height / 2 - 20, Config.visuals.gameOver);
       const msg = this.scores.p1 >= Config.rules.winningScore ? "Player 1 Wins!" : "Player 2 Wins!";
@@ -370,7 +427,12 @@ class Game {
     this.scores.p1 = 0; this.scores.p2 = 0;
     this.paddleLeft.position.y = (Config.canvas.height - this.paddleLeft.height) / 2;
     this.paddleRight.position.y = (Config.canvas.height - this.paddleRight.height) / 2;
-    this.ball.reset(true);
+    if (this.balls && this.balls.length > 0) {
+      this.balls[0].reset(true);
+      this.balls = [ this.balls[0] ];
+    } else {
+      this.balls = [ new Ball(Config.ball.radius, Config.canvas.width, Config.canvas.height) ];
+    }
     this.gameOver = false;
     this.restartBtn.style.display = "none";
   }
