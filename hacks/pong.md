@@ -54,7 +54,7 @@ comments: True
 const Config = {
   canvas: { width: 800, height: 500 },
   paddle: { width: 10, height: 100, speed: 10.5 },
-  ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3, maxSpeed: 15 },
+  ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3, maxSpeed: 12 },
   bumper: { enabledAtScore: 9, radius: 40, color: "#888" },
   rules: { winningScore: 10 },
   keys: {
