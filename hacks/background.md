@@ -32,6 +32,19 @@ permalink: /background
   obstacleImg.onload = function() { obstacleImg.ready = true; };
   obstacleImg.onerror = function() { obstacleImg.ready = false; };
 
+  // Create HUD early so it's visible even if images are slow or fail to load.
+  if (!document.getElementById('bg-hud')) {
+    const earlyHud = document.createElement('div');
+    earlyHud.id = 'bg-hud';
+    Object.assign(earlyHud.style, {
+      position: 'fixed', left: '12px', top: '12px', zIndex: 9999,
+      color: 'white', background: 'rgba(0,0,0,0.65)', padding: '8px 12px', borderRadius: '8px', fontFamily: 'monospace',
+      fontSize: '14px', lineHeight: '1.2'
+    });
+    earlyHud.innerHTML = 'Score: <span id="rps-score">0</span> &nbsp; High: <span id="rps-high">0</span> &nbsp; Lives: <span id="rps-lives">0</span>';
+    document.body.appendChild(earlyHud);
+  }
+
   function startGameWorld() {
     if (imagesLoaded < 2) return;
 
@@ -162,31 +175,53 @@ permalink: /background
         this.highScore = parseInt(localStorage.getItem(this.highScoreKey) || '0', 10) || 0;
 
         // HUD (score + high score + lives) and retry button
-        this.hud = document.createElement('div');
-        Object.assign(this.hud.style, {
-          position: 'fixed', left: '12px', top: '12px', zIndex: 9999,
-          color: 'white', background: 'rgba(0,0,0,0.45)', padding: '6px 10px', borderRadius: '6px', fontFamily: 'monospace'
-        });
-        this.hud.innerHTML = `Score: <span id="rps-score">0</span> &nbsp; High: <span id="rps-high">${this.highScore}</span> &nbsp; Lives: <span id="rps-lives">${this.lives}</span>`;
-        document.body.appendChild(this.hud);
-        this.hudScore = this.hud.querySelector('#rps-score');
-        this.hudHigh = this.hud.querySelector('#rps-high');
-        this.hudLives = this.hud.querySelector('#rps-lives');
+        // If an "early" HUD was injected before images loaded, reuse it instead
+        const existingHud = document.getElementById('bg-hud');
+        if (existingHud) {
+          this.hud = existingHud;
+          this.hudScore = document.getElementById('rps-score');
+          this.hudHigh = document.getElementById('rps-high');
+          this.hudLives = document.getElementById('rps-lives');
+          // ensure values are up-to-date
+          if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+          if (this.hudLives) this.hudLives.textContent = String(this.lives);
+        } else {
+          this.hud = document.createElement('div');
+          Object.assign(this.hud.style, {
+            position: 'fixed', left: '12px', top: '12px', zIndex: 9999,
+            color: 'white', background: 'rgba(0,0,0,0.65)', padding: '8px 12px', borderRadius: '8px', fontFamily: 'monospace',
+            fontSize: '14px', lineHeight: '1.2'
+          });
+          this.hud.innerHTML = `Score: <span id="rps-score">0</span> &nbsp; High: <span id="rps-high">${this.highScore}</span> &nbsp; Lives: <span id="rps-lives">${this.lives}</span>`;
+          document.body.appendChild(this.hud);
+          this.hudScore = this.hud.querySelector('#rps-score');
+          this.hudHigh = this.hud.querySelector('#rps-high');
+          this.hudLives = this.hud.querySelector('#rps-lives');
+        }
 
-  this.retryBtn = document.createElement('button');
-        this.retryBtn.id = 'game-retry-btn';
-        this.retryBtn.setAttribute('aria-label', 'Retry game');
-        this.retryBtn.textContent = 'Retry';
-        Object.assign(this.retryBtn.style, {
-          position: 'fixed', right: '12px', top: '12px', zIndex: 2147483647, padding: '10px 14px',
-          display: 'none', background: '#ff4757', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.35)'
-        });
-        this.retryBtn.setAttribute('aria-hidden', 'true');
-        document.body.appendChild(this.retryBtn);
-        this.retryBtn.addEventListener('click', () => { this.resetGame(); });
-        // allow keyboard activation when visible
-        this.retryBtn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.resetGame(); } });
+        // Retry button: reuse if present, otherwise create
+        let existingRetry = document.getElementById('game-retry-btn');
+        if (existingRetry) {
+          this.retryBtn = existingRetry;
+          // attach/replace handlers to point to this instance
+          this.retryBtn.onclick = () => { this.resetGame(); };
+          this.retryBtn.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.resetGame(); } };
+        } else {
+          this.retryBtn = document.createElement('button');
+          this.retryBtn.id = 'game-retry-btn';
+          this.retryBtn.setAttribute('aria-label', 'Retry game');
+          this.retryBtn.textContent = 'Retry';
+          Object.assign(this.retryBtn.style, {
+            position: 'fixed', right: '12px', top: '12px', zIndex: 2147483647, padding: '10px 14px',
+            display: 'none', background: '#ff4757', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.35)'
+          });
+          this.retryBtn.setAttribute('aria-hidden', 'true');
+          document.body.appendChild(this.retryBtn);
+          this.retryBtn.addEventListener('click', () => { this.resetGame(); });
+          // allow keyboard activation when visible
+          this.retryBtn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.resetGame(); } });
+        }
 
         // Input handling (WASD)
         window.addEventListener('keydown', (e) => {
@@ -241,7 +276,8 @@ permalink: /background
             if (this.score > this.highScore) {
               this.highScore = this.score;
               try { localStorage.setItem(this.highScoreKey, String(this.highScore)); } catch (e) { /* ignore storage errors */ }
-              // visual indicator for new high
+              // update HUD and visual indicator for new high
+              if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
               this.pulseHigh();
             }
           }
@@ -271,9 +307,10 @@ permalink: /background
           }
         }
 
-        // update HUD score
-        if (this.hudScore) this.hudScore.textContent = String(this.score);
-        if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+  // update HUD score & lives every frame
+  if (this.hudScore) this.hudScore.textContent = String(this.score);
+  if (this.hudHigh) this.hudHigh.textContent = String(this.highScore);
+  if (this.hudLives) this.hudLives.textContent = String(this.lives);
 
         if (!this.paused) {
           requestAnimationFrame(this.gameLoop.bind(this));
