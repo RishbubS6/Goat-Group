@@ -56,7 +56,7 @@ const Config = {
   paddle: { width: 10, height: 100, speed: 10.5 },
   ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3, maxSpeed: 12 },
   bumper: { enabledAtScore: 9, radius: 40, color: "#888" },
-  rules: { winningScore: 10 },
+  rules: { winningScore: 11 },
   keys: {
     // TODO[Students]: Remap keys if desired
     p1Up: "w", p1Down: "s",
@@ -192,8 +192,8 @@ class Game {
     if (this.gameOver) return;
     this.ball.update();
 
-    // --- bumper collision (active once either player reaches configured score) ---
-    const bumperActive = (this.scores.p1 >= Config.bumper.enabledAtScore || this.scores.p2 >= Config.bumper.enabledAtScore);
+    // --- bumper collision (active once combined score reaches configured value) ---
+    const bumperActive = ((this.scores.p1 + this.scores.p2) >= Config.bumper.enabledAtScore);
     if (bumperActive) {
       const cx = Config.canvas.width / 2;
       const cy = Config.canvas.height / 2;
@@ -216,7 +216,7 @@ class Game {
         this.ball.position.x += nx * overlap;
         this.ball.position.y += ny * overlap;
         // enforce max speed after bumper reflection
-        this.capBallSpeed();
+        this.capBallSpeed(10);
       }
     }
 
@@ -297,7 +297,7 @@ class Game {
     this.renderer.rect(this.paddleLeft.rect());
     this.renderer.rect(this.paddleRight.rect());
     // draw bumper if active (draw before ball so ball is visible on top)
-    const bumperActive = (this.scores.p1 >= Config.bumper.enabledAtScore || this.scores.p2 >= Config.bumper.enabledAtScore);
+    const bumperActive = ((this.scores.p1 + this.scores.p2) >= Config.bumper.enabledAtScore);
     if (bumperActive) {
       const cx = Config.canvas.width / 2;
       const cy = Config.canvas.height / 2;
