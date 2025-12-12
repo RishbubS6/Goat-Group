@@ -200,6 +200,13 @@ class Game {
       this.ball.velocity.x *= -1;
       const delta = this.ball.position.y - (this.paddleLeft.position.y + this.paddleLeft.height / 2);
       this.ball.velocity.y = delta * Config.ball.spinFactor; // "spin"
+      // Increase ball speed by 1.25x on paddle hit (preserve numeric safety)
+      if (this.ball && this.ball.velocity && typeof this.ball.velocity.x === 'number') {
+        this.ball.velocity.x = this.ball.velocity.x * 1.25;
+      }
+      if (this.ball && this.ball.velocity && typeof this.ball.velocity.y === 'number') {
+        this.ball.velocity.y = this.ball.velocity.y * 1.25;
+      }
     }
 
     const hitRight = this.ball.position.x + this.ball.radius > (Config.canvas.width - this.paddleRight.width) &&
@@ -210,6 +217,13 @@ class Game {
       this.ball.velocity.x *= -1;
       const delta = this.ball.position.y - (this.paddleRight.position.y + this.paddleRight.height / 2);
       this.ball.velocity.y = delta * Config.ball.spinFactor;
+      // Increase ball speed by 1.25x on paddle hit (preserve numeric safety)
+      if (this.ball && this.ball.velocity && typeof this.ball.velocity.x === 'number') {
+        this.ball.velocity.x = this.ball.velocity.x * 1.25;
+      }
+      if (this.ball && this.ball.velocity && typeof this.ball.velocity.y === 'number') {
+        this.ball.velocity.y = this.ball.velocity.y * 1.25;
+      }
     }
 
     // Scoring
