@@ -194,11 +194,19 @@ permalink: /snake/
                 });
             }
             // activate window events
-            window.addEventListener("keydown", function(evt) {
-                // spacebar detected
-                if(evt.code === "Space" && SCREEN !== SCREEN_SNAKE)
-                    newGame();
-            }, true);
+                // robust spacebar detection (code, key, or keyCode) and prevent default
+                window.addEventListener("keydown", function(evt) {
+                    const isSpace = evt.code === "Space" || evt.key === " " || evt.key === "Spacebar" || evt.keyCode === 32;
+                    if (isSpace && SCREEN !== SCREEN_SNAKE) {
+                        evt.preventDefault();
+                        newGame();
+                    }
+                }, false);
+                // single canvas key listener (set once) so we don't add duplicate handlers on every newGame()
+                if (screen_snake && !screen_snake.__snakeKeybound) {
+                    screen_snake.addEventListener("keydown", function(evt){ changeDir(evt.keyCode); });
+                    screen_snake.__snakeKeybound = true;
+                }
         }
         /* Snake is on the Go (Driver Function)  */
         /////////////////////////////////////////////////////////////
@@ -289,10 +297,7 @@ permalink: /snake/
             snake_next_dir = 1;
             // food on canvas
             addFood();
-            // activate canvas event
-            canvas.onkeydown = function(evt) {
-                changeDir(evt.keyCode);
-            }
+            // canvas key handling is bound once during initialization (see window.onload)
             mainLoop();
         }
         /* Key Inputs and Actions */
