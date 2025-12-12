@@ -9,7 +9,7 @@ toc: True
 comments: True
 ---
 
-## 🎮 Pong Game Demo
+## Pong Game Demo
 
 <div class="game-canvas-container" style="text-align:center;">
   <canvas id="pongCanvas" width="800" height="500"></canvas>
@@ -55,7 +55,7 @@ const Config = {
   canvas: { width: 800, height: 500 },
   paddle: { width: 10, height: 100, speed: 10.5 },
   ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3, maxSpeed: 12 },
-  bumper: { enabledAtScore: 9, radius: 40, color: "#888" },
+  bumper: { enabledAtScore: 9, radius: 40, color: "#ed1111ff" },
   rules: { winningScore: 11 },
   keys: {
     // TODO[Students]: Remap keys if desired
@@ -116,8 +116,17 @@ class Ball {
 class Input {
   constructor() {
     this.keys = {};
-    document.addEventListener("keydown", e => this.keys[e.key] = true);
-    document.addEventListener("keyup", e => this.keys[e.key] = false);
+    // Prevent default browser behavior for keys we use (arrow keys, space)
+    document.addEventListener("keydown", e => {
+      const k = e.key;
+      if (k === 'ArrowUp' || k === 'ArrowDown' || k === ' ' || k === 'Spacebar') {
+        e.preventDefault();
+      }
+      this.keys[k] = true;
+    });
+    document.addEventListener("keyup", e => {
+      this.keys[e.key] = false;
+    });
   }
   isDown(k) { return !!this.keys[k]; }
 }
