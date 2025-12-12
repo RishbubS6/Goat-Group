@@ -3,13 +3,16 @@ layout: opencs
 title: Snake Game
 permalink: /snake/
 ---
+
 <style>
+
     body{
     }
     .wrap{
         margin-left: auto;
         margin-right: auto;
     }
+
     canvas{
         display: none;
         border-style: solid;
@@ -19,45 +22,82 @@ permalink: /snake/
     canvas:focus{
         outline: none;
     }
+
     /* All screens style */
     #gameover p, #setting p, #menu p{
         font-size: 20px;
     }
+
     #gameover a, #setting a, #menu a{
         font-size: 30px;
         display: block;
     }
+
     #gameover a:hover, #setting a:hover, #menu a:hover{
         cursor: pointer;
     }
+
     #gameover a:hover::before, #setting a:hover::before, #menu a:hover::before{
         content: ">";
         margin-right: 10px;
     }
+
     #menu{
         display: block;
     }
+
     #gameover{
         display: none;
     }
+
     #setting{
         display: none;
     }
+
     #setting input{
         display:none;
     }
+
     #setting label{
         cursor: pointer;
     }
+
     #setting input:checked + label{
         background-color: #FFF;
         color: #000;
     }
+
+    /* Scoreboard styling */
+    #scoreboard{
+        display: inline-flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        margin: 12px auto;
+        padding: 6px 10px;
+        border-radius: 12px;
+        background: rgba(0,0,0,0.45);
+        color: #fff;
+    }
+    .score-item{
+        background: rgba(255,255,255,0.06);
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    #score_value, #high_score_value{
+        margin-left: 6px;
+        color: #ffd700;
+    }
 </style>
+
 
 <h2>Snake</h2>
 <div class="container">
-    <p class="fs-4">Score: <span id="score_value">0</span></p>
+    <div id="scoreboard" class="fs-4">
+        <div class="score-item">Score: <span id="score_value">0</span></div>
+        <div class="score-item">High Score: <span id="high_score_value">0</span></div>
+    </div>
 
     <div class="container bg-secondary" style="text-align:center;">
         <!-- Main Menu -->
@@ -96,6 +136,7 @@ permalink: /snake/
         </div>
     </div>
 </div>
+
 <script>
     (function(){
         /* Attributes of Game */
@@ -122,6 +163,7 @@ permalink: /snake/
         const button_new_game2 = document.getElementById("new_game2");
         const button_setting_menu = document.getElementById("setting_menu");
         const button_setting_menu1 = document.getElementById("setting_menu1");
+        // (start-choice buttons removed) 
         // Game Control
         const BLOCK = 10;   // size of block rendering
         let SCREEN = SCREEN_MENU;
@@ -161,7 +203,7 @@ permalink: /snake/
                     break;
             }
         }
-    /* Actions and Events  */
+        /* Actions and Events  */
         /////////////////////////////////////////////////////////////
         window.onload = function(){
             // HTML Events to Functions
@@ -193,19 +235,11 @@ permalink: /snake/
                 });
             }
             // activate window events
-                // robust spacebar detection (code, key, or keyCode) and prevent default
-                window.addEventListener("keydown", function(evt) {
-                    const isSpace = evt.code === "Space" || evt.key === " " || evt.key === "Spacebar" || evt.keyCode === 32;
-                    if (isSpace && SCREEN !== SCREEN_SNAKE) {
-                        evt.preventDefault();
-                        newGame();
-                    }
-                }, false);
-                // single canvas key listener (set once) so we don't add duplicate handlers on every newGame()
-                if (screen_snake && !screen_snake.__snakeKeybound) {
-                    screen_snake.addEventListener("keydown", function(evt){ changeDir(evt.keyCode); });
-                    screen_snake.__snakeKeybound = true;
-                }
+            window.addEventListener("keydown", function(evt) {
+                // spacebar detected
+                if(evt.code === "Space" && SCREEN !== SCREEN_SNAKE)
+                    newGame();
+            }, true);
         }
         /* Snake is on the Go (Driver Function)  */
         /////////////////////////////////////////////////////////////
@@ -262,10 +296,17 @@ permalink: /snake/
                 // draw new food immediately in red
                 activeDot(food.x, food.y, "#FF0000");
             }
-            // Repaint canvas
-            ctx.beginPath();
-            ctx.fillStyle = "royalblue";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Repaint canvas with alternating green tiles (Google-doodle style)
+            // fill the board as a checker pattern of tiles the size of BLOCK
+            const cols = canvas.width / BLOCK;
+            const rows = canvas.height / BLOCK;
+            for (let ry = 0; ry < rows; ry++){
+                for (let rx = 0; rx < cols; rx++){
+                    // choose light or dark green based on parity
+                    ctx.fillStyle = ((rx + ry) % 2 === 0) ? '#c7f0c7' : '#8fd48f';
+                    ctx.fillRect(rx * BLOCK, ry * BLOCK, BLOCK, BLOCK);
+                }
+            }
             // Paint snake
             for(let i = 0; i < snake.length; i++){
                 // snake segments in green
@@ -286,8 +327,8 @@ permalink: /snake/
             screen_snake.focus();
             // game score to zero
             score = 0;
-            // initialize session high score and update display
-            try{ highScore = parseInt(sessionStorage.getItem('snake_highscore')) || 0; }catch(e){ highScore = 0; }
+            // initialize persistent high score and update display
+            try{ highScore = parseInt(localStorage.getItem('snake_highscore')) || 0; }catch(e){ highScore = 0; }
             if(ele_highscore) ele_highscore.textContent = String(highScore);
             altScore(score);
             // initial snake
@@ -296,7 +337,10 @@ permalink: /snake/
             snake_next_dir = 1;
             // food on canvas
             addFood();
-            // canvas key handling is bound once during initialization (see window.onload)
+            // activate canvas event
+            canvas.onkeydown = function(evt) {
+                changeDir(evt.keyCode);
+            }
             mainLoop();
         }
         /* Key Inputs and Actions */
@@ -352,7 +396,7 @@ permalink: /snake/
             // update session high score if needed
             if(score_val > highScore){
                 highScore = score_val;
-                try{ sessionStorage.setItem('snake_highscore', String(highScore)); }catch(e){}
+                try{ localStorage.setItem('snake_highscore', String(highScore)); }catch(e){}
                 if(ele_highscore) ele_highscore.textContent = String(highScore);
             }
         }
