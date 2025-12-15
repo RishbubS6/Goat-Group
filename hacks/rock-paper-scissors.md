@@ -42,7 +42,7 @@ permalink: /rock-paper-scissors/
     overflow-y: auto;      /* added */
     font-family: 'Press Start 2P', cursive;
     border: 3px solid purple;
-    box-shadow: 0 0 20px rgba(128, 0, 128, 0.5);
+    box-shadow: 0 0 20px rgba(0, 60, 128, 0.5);
     text-align: center;
     `;
 
