@@ -312,14 +312,15 @@ class Game {
       const b1 = this.balls[0];
       b1.position.x = Config.canvas.width / 2;
       b1.position.y = Config.canvas.height / 2;
-      // send original ball toward the opposite side to vary play
-      b1.velocity.x = -Math.sign(b1.velocity.x || 1) * Math.abs(Config.ball.baseSpeedX);
+      // ensure two balls go in opposite horizontal directions
+      b1.velocity.x = -Math.abs(Config.ball.baseSpeedX);
       b1.velocity.y = (Math.random() * (2 * Config.ball.maxRandomY)) - Config.ball.maxRandomY;
       const b2 = new Ball(Config.ball.radius, Config.canvas.width, Config.canvas.height);
       b2.position.x = Config.canvas.width / 2;
       b2.position.y = Config.canvas.height / 2;
-      b2.velocity.x = Math.sign(b1.velocity.x || 1) * Math.abs(Config.ball.baseSpeedX);
-      b2.velocity.y = (Math.random() * (2 * Config.ball.maxRandomY)) - Config.ball.maxRandomY;
+      b2.velocity.x = Math.abs(Config.ball.baseSpeedX);
+      // give the second ball the inverse vertical velocity for clearer opposite movement
+      b2.velocity.y = -b1.velocity.y;
       this.balls.push(b2);
     }
 
