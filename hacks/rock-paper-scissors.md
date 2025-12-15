@@ -50,7 +50,6 @@ permalink: /rock-paper-scissors/
     <h2 style="color: purple; margin-bottom: 20px;">Rock Paper Scissors SHOOT!</h2>
     <div style="margin-bottom: 20px;">
       <p>Play the game from your browser console, by clicking an icon, or by pressing the keys <code>R</code>, <code>P</code>, or <code>S</code> on your keyboard.</p>
-      <p>Type <code>playRPS("rock")</code>, <code>playRPS("paper")</code>, or <code>playRPS("scissors")</code> in the console to experiment with the provided classes.</p>
     </div>
     <div id="images" style="display:flex; justify-content:center; gap:20px; margin-bottom:14px;">
       <button id="rock-btn" aria-label="play rock" tabindex="0" style="background:none; border:none; padding:0; cursor:pointer;">
