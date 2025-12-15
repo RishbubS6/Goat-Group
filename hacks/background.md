@@ -18,7 +18,8 @@ permalink: /background
   backgroundImg.src = '{{page.background}}';
   spriteImg.src = '{{page.sprite}}';
   // try to load an asteroid sprite; fall back to circle obstacles if missing
-  obstacleImg.src = '/images/astroid.png';
+  // use the repository image `images/asteroid.png` (correct spelling)
+  obstacleImg.src = '/images/asteroid.png';
 
   let imagesLoaded = 0;
   backgroundImg.onload = function() {
