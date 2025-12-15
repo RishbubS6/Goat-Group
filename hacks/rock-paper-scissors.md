@@ -27,11 +27,11 @@ permalink: /rock-paper-scissors/
 </style>
 
 <script type="module">
-  // --- UI (purple box) ---
+  // --- UI (blue box) ---
     const instructionsStyle = `
   position: relative;
   margin: 64px auto 48px auto;
-    background: linear-gradient(135deg, black, purple);
+    background: linear-gradient(135deg, black, blue);
     color: white;
     padding: 30px;
     border-radius: 15px;
@@ -41,13 +41,13 @@ permalink: /rock-paper-scissors/
     max-height: 80vh;      /* added */
     overflow-y: auto;      /* added */
     font-family: 'Press Start 2P', cursive;
-    border: 3px solid purple;
+    border: 3px solid blue;
     box-shadow: 0 0 20px rgba(0, 60, 128, 0.5);
     text-align: center;
     `;
 
   const instructionsHTML = `
-    <h2 style="color: purple; margin-bottom: 20px;">Rock Paper Scissors SHOOT!</h2>
+    <h2 style="color: blue; margin-bottom: 20px;">Rock Paper Scissors SHOOT!</h2>
     <div style="margin-bottom: 20px;">
       <p>Play the game from your browser console, by clicking an icon, or by pressing the keys <code>R</code>, <code>P</code>, or <code>S</code> on your keyboard.</p>
     </div>
@@ -151,7 +151,7 @@ permalink: /rock-paper-scissors/
   battleCanvas.height = 180;
   battleCanvas.style.display = 'block';
   battleCanvas.style.margin = '0 auto';
-  battleCanvas.style.background = '#111';
+  battleCanvas.style.background = '#001a33';
   battleCanvas.style.borderRadius = '12px';
   battleCanvas.style.boxShadow = '0 2px 12px rgba(0,0,0,0.18)';
   document.getElementById('battleMount').appendChild(battleCanvas);
@@ -175,6 +175,39 @@ permalink: /rock-paper-scissors/
   paper:    new BattleSprite(paperImg,    96, 96, 132, 42),
   scissors: new BattleSprite(scissorsImg, 96, 96, 254, 42)
   };
+
+  // Floating background sprites (appear when a round is played)
+  class FloatingSprite {
+    constructor(image, w, h, x, y, vx = -0.6, vy = 0, ttl = 300) {
+      this.image = image;
+      this.w = w; this.h = h;
+      this.x = x; this.y = y;
+      this.vx = vx; this.vy = vy;
+      this.angle = Math.random() * Math.PI * 2;
+      this.angularSpeed = (Math.random() * 0.04 - 0.02);
+      this.ttl = ttl; // frames to live
+      this.opacity = 0.9;
+    }
+    update() {
+      this.x += this.vx; this.y += this.vy; this.angle += this.angularSpeed; this.ttl--; this.opacity = Math.max(0, this.ttl / 300 * 0.9);
+    }
+    draw(ctx) {
+      if(!this.image || !this.image.complete || this.image.naturalWidth===0) return;
+      ctx.save(); ctx.globalAlpha = this.opacity;
+      ctx.translate(this.x + this.w/2, this.y + this.h/2);
+      ctx.rotate(this.angle);
+      ctx.drawImage(this.image, -this.w/2, -this.h/2, this.w, this.h);
+      ctx.restore();
+    }
+  }
+
+  const floating = [];
+
+  function getImageFor(choice){
+    if(choice === 'rock') return rockImg;
+    if(choice === 'paper') return paperImg;
+    return scissorsImg;
+  }
 
   function resetAll(){
     Object.values(sprites).forEach(s=>{
@@ -226,6 +259,17 @@ permalink: /rock-paper-scissors/
   function render(){
   ctx.clearRect(0,0,battleCanvas.width,battleCanvas.height);
   bg.update();  bg.draw(ctx);
+  // update/draw floating background sprites (behind the battle sprites)
+  for(let i = floating.length - 1; i >= 0; i--) {
+    const f = floating[i];
+    f.update();
+    // remove when expired or out of bounds
+    if (f.ttl <= 0 || f.x < -f.w - 20 || f.x > battleCanvas.width + 20 || f.y < -f.h - 20 || f.y > battleCanvas.height + 20) {
+      floating.splice(i, 1);
+      continue;
+    }
+    f.draw(ctx);
+  }
   // Draw 'Animated Battle: OOP' text (smaller)
   ctx.save();
   ctx.font = "bold 14px 'Press Start 2P', cursive";
@@ -317,6 +361,15 @@ permalink: /rock-paper-scissors/
     `;
 
     if(winner && loser) startBattle(winner, loser);
+
+    // spawn floating background sprites for player and computer picks
+    try {
+      const pImg = getImageFor(playerChoice);
+      const cImg = getImageFor(computerChoice);
+      // player floats to the right, computer floats to the left for a nice cross effect
+      floating.push(new FloatingSprite(pImg, 40, 40, Math.random()*battleCanvas.width, Math.random()*battleCanvas.height, 0.6 + Math.random()*0.6, (Math.random()-0.5)*0.4, 260));
+      floating.push(new FloatingSprite(cImg, 40, 40, Math.random()*battleCanvas.width, Math.random()*battleCanvas.height, -0.6 - Math.random()*0.6, (Math.random()-0.5)*0.4, 260));
+    } catch (e) { /* ignore if images missing */ }
 
     console.log(`You chose: ${playerChoice.toUpperCase()}`);
     console.log(`Computer chose: ${computerChoice.toUpperCase()}`);
