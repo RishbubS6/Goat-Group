@@ -4,6 +4,7 @@ title: Blackjack Card Game
 permalink: /javascript/project/blackjack
 ---
 
+{% raw %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
@@ -38,7 +39,6 @@ let deck = [];
 let playerHand = [];
 let dealerHand = [];
 let gameOver = false;
-
 let maxBet = 100;
 
 function resetBets() {
@@ -74,12 +74,10 @@ function getCardValue(card) {
 function calculateHand(hand) {
     let value = 0;
     let aces = 0;
-
     for (let card of hand) {
         value += getCardValue(card);
         if (card.value === "A") aces++;
     }
-
     while (value > 21 && aces > 0) {
         value -= 10;
         aces--;
@@ -93,8 +91,6 @@ function renderHand(hand, container, pointsContainer) {
         const cardEl = document.createElement("div");
         cardEl.className = "card";
         cardEl.textContent = card.value + card.suit;
-        cardEl.style.color =
-            (card.suit === "♥" || card.suit === "♦") ? "red" : "black";
         container.appendChild(cardEl);
     }
     pointsContainer.textContent = calculateHand(hand);
@@ -102,62 +98,16 @@ function renderHand(hand, container, pointsContainer) {
 
 function renderDealerInitial() {
     dealerCardsEl.innerHTML = "";
-
     const firstCard = dealerHand[0];
-    const cardEl1 = document.createElement("div");
-    cardEl1.className = "card";
-    cardEl1.textContent = firstCard.value + firstCard.suit;
-    cardEl1.style.color =
-        (firstCard.suit === "♥" || firstCard.suit === "♦") ? "red" : "black";
-    dealerCardsEl.appendChild(cardEl1);
-
-    const hiddenCard = document.createElement("div");
-    hiddenCard.className = "card";
-    hiddenCard.textContent = "🂠";
-    dealerCardsEl.appendChild(hiddenCard);
-
+    const cardEl = document.createElement("div");
+    cardEl.className = "card";
+    cardEl.textContent = firstCard.value + firstCard.suit;
+    dealerCardsEl.appendChild(cardEl);
+    const hidden = document.createElement("div");
+    hidden.className = "card";
+    hidden.textContent = "🂠";
+    dealerCardsEl.appendChild(hidden);
     dealerScoreEl.textContent = getCardValue(firstCard);
-}
-
-function updateScores() {
-    dealerScoreEl.textContent = calculateHand(dealerHand);
-    playerScoreEl.textContent = calculateHand(playerHand);
-}
-
-function checkGameOver() {
-    const playerValue = calculateHand(playerHand);
-    const dealerValue = calculateHand(dealerHand);
-
-    if (playerValue > 21) {
-        messageEl.textContent =
-            "You busted! You lost everything. Max bet reset to $100.";
-        resetBets();
-        gameOver = true;
-        return;
-    }
-
-    if (dealerValue > 21) {
-        maxBet += 10;
-        messageEl.textContent =
-            "Dealer busted! You win! Next max bet: $" + maxBet;
-        gameOver = true;
-        return;
-    }
-
-    if (gameOver) {
-        if (playerValue > dealerValue) {
-            maxBet += 10;
-            messageEl.textContent =
-                "You win! Next max bet: $" + maxBet;
-        } else if (dealerValue > playerValue) {
-            resetBets();
-            messageEl.textContent =
-                "Dealer wins! You lost everything. Max bet reset to $100.";
-        } else {
-            messageEl.textContent =
-                "It's a tie. Max bet stays at $" + maxBet;
-        }
-    }
 }
 
 function newGame() {
@@ -165,37 +115,20 @@ function newGame() {
     playerHand = [deck.pop(), deck.pop()];
     dealerHand = [deck.pop(), deck.pop()];
     gameOver = false;
-
     renderHand(playerHand, playerCardsEl, playerScoreEl);
     renderDealerInitial();
-    messageEl.textContent =
-        "Current max bet: $" + maxBet + ". Your move.";
+    messageEl.textContent = "Current max bet: $" + maxBet;
 }
 
 function hit() {
     if (gameOver) return;
     playerHand.push(deck.pop());
     renderHand(playerHand, playerCardsEl, playerScoreEl);
-    if (calculateHand(playerHand) > 21) checkGameOver();
 }
 
 function stand() {
     if (gameOver) return;
-
-    dealerCardsEl.children[1].textContent =
-        dealerHand[1].value + dealerHand[1].suit;
-
-    dealerCardsEl.children[1].style.color =
-        (dealerHand[1].suit === "♥" || dealerHand[1].suit === "♦") ? "red" : "black";
-
-    while (calculateHand(dealerHand) < 17) {
-        dealerHand.push(deck.pop());
-        renderHand(dealerHand, dealerCardsEl, dealerScoreEl);
-    }
-
-    updateScores();
     gameOver = true;
-    checkGameOver();
 }
 
 newGameBtn.addEventListener("click", newGame);
@@ -204,3 +137,4 @@ standBtn.addEventListener("click", stand);
 
 });
 </script>
+{% endraw %}
