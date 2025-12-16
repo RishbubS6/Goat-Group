@@ -1,3 +1,11 @@
+---
+layout: opencs
+title: Solitaire
+permalink: /solitaire
+---
+
+
+
 {
  "cells": [
   {
