@@ -1,5 +1,5 @@
 ---
-layout: opencs
+layout: default
 title: Blackjack Card Game
 permalink: /javascript/project/blackjack
 ---
