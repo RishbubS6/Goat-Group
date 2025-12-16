@@ -162,3 +162,133 @@ permalink: /Cookie-Clicker/
     // Initial display update
     updateDisplay();
 </script>
+// Load game state from storage or use defaults
+    let cookies = 0;
+    const upgrades = {
+        cursor: { count: 0, baseCost: 10, cps: 0.1 },
+        grandma: { count: 0, baseCost: 700, cps: 1 },
+        factory: { count: 0, baseCost: 5000, cps: 8 },
+        bank: { count: 0, baseCost: 60000, cps: 47 },
+        temple: { count: 0, baseCost: 500000, cps: 260 },
+        ohio: { count: 0, baseCost: 2000000, cps: 1400 }
+    };
+
+    // Load saved data
+    async function loadGame() {
+        try {
+            const savedCookies = await window.storage.get('cookie_clicker_cookies');
+            const savedUpgrades = await window.storage.get('cookie_clicker_upgrades');
+            
+            if (savedCookies && savedCookies.value) {
+                cookies = parseFloat(savedCookies.value);
+            }
+            
+            if (savedUpgrades && savedUpgrades.value) {
+                const loaded = JSON.parse(savedUpgrades.value);
+                for (const key in loaded) {
+                    if (upgrades[key]) {
+                        upgrades[key].count = loaded[key].count;
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('No saved game found or error loading:', error);
+        }
+        updateDisplay();
+    }
+
+    // Save game data
+    async function saveGame() {
+        try {
+            await window.storage.set('cookie_clicker_cookies', cookies.toString());
+            const upgradeData = {};
+            for (const key in upgrades) {
+                upgradeData[key] = { count: upgrades[key].count };
+            }
+            await window.storage.set('cookie_clicker_upgrades', JSON.stringify(upgradeData));
+        } catch (error) {
+            console.log('Error saving game:', error);
+        }
+    }
+
+    // Calculate current cost with scaling
+    function getCurrentCost(upgrade) {
+        return Math.floor(upgrade.baseCost * Math.pow(1.15, upgrade.count));
+    }
+
+    // Calculate total cookies per second
+    function getTotalCps() {
+        return Object.values(upgrades).reduce((sum, upgrade) => 
+            sum + (upgrade.count * upgrade.cps), 0
+        );
+    }
+
+    // Update display
+    function updateDisplay() {
+        document.getElementById('cookie-count').textContent = Math.floor(cookies);
+        document.getElementById('cps-display').textContent = getTotalCps().toFixed(1);
+
+        // Update each upgrade button
+        for (const [key, upgrade] of Object.entries(upgrades)) {
+            const cost = getCurrentCost(upgrade);
+            const button = document.getElementById(`btn-${key}`);
+            
+            document.getElementById(`cost-${key}`).textContent = `Cost: ${cost}`;
+            document.getElementById(`count-${key}`).textContent = `Owned: ${upgrade.count}`;
+
+            // Update button styles based on affordability
+            if (cookies >= cost) {
+                button.className = 'px-4 py-3 rounded shadow transition-all bg-green-500 hover:bg-green-600 text-white';
+                button.disabled = false;
+            } else {
+                button.className = 'px-4 py-3 rounded shadow transition-all bg-gray-400 text-gray-200 cursor-not-allowed';
+                button.disabled = true;
+            }
+        }
+    }
+
+    // Handle cookie click
+    document.getElementById('cookie-button').addEventListener('click', () => {
+        cookies += 1;
+        updateDisplay();
+        saveGame();
+    });
+
+    // Handle upgrade purchases
+    function buyUpgrade(upgradeKey) {
+        const upgrade = upgrades[upgradeKey];
+        const cost = getCurrentCost(upgrade);
+        
+        if (cookies >= cost) {
+            cookies -= cost;
+            upgrade.count += 1;
+            updateDisplay();
+            saveGame();
+        }
+    }
+
+    // Set up upgrade button listeners
+    document.getElementById('btn-cursor').addEventListener('click', () => buyUpgrade('cursor'));
+    document.getElementById('btn-grandma').addEventListener('click', () => buyUpgrade('grandma'));
+    document.getElementById('btn-factory').addEventListener('click', () => buyUpgrade('factory'));
+    document.getElementById('btn-bank').addEventListener('click', () => buyUpgrade('bank'));
+    document.getElementById('btn-temple').addEventListener('click', () => buyUpgrade('temple'));
+    document.getElementById('btn-ohio').addEventListener('click', () => buyUpgrade('ohio'));
+
+    // Auto-generate cookies
+    setInterval(() => {
+        const totalCps = getTotalCps();
+        if (totalCps > 0) {
+            cookies += totalCps / 10; // Update every 100ms
+            updateDisplay();
+        }
+    }, 100);
+
+    // Save game every 5 seconds
+    setInterval(() => {
+        saveGame();
+    }, 5000);
+
+    // Load game on start
+    loadGame();
+</script>
