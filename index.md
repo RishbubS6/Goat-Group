@@ -43,6 +43,11 @@ Hi! My name is [Your Full Name]
             Turtle
         </div>
     </a>
+    <a href="{{site.baseurl}}/javascript/project/blackjack" style="text-decoration: none;">
+        <div style="background-color: #3300ffff; color: white; padding: 10px 20px; border-radius: 5px; font-weight: bold;">
+            Black Jack
+        </div>
+    </a>
 </div>
 
 <br>
