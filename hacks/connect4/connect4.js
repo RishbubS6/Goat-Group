@@ -225,4 +225,4 @@ class Connect4 {
     }
 }
 
-const game = new Connect4();
+const game = new Connect4(); 
