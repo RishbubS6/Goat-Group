@@ -58,7 +58,8 @@ comments: True
 const Config = {
   canvas: { width: 800, height: 500 },
   paddle: { width: 10, height: 100, speed: 10.5 },
-  ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3, maxSpeed: 12 },
+  ball: { radius: 10, baseSpeedX: 5, maxRandomY: 2, spinFactor: 0.3, maxSpeed: 15 },
+  powerUp: { spawnMinSec: 6, spawnMaxSec: 14, width: 28, height: 14, durationSec: 6, colors: { bg: '#ffdd57', border: '#ffaa00' } },
   bumper: { enabledAtScore: 9, radius: 40, color: "#ed1111ff" },
   rules: { winningScore: 11 },
   keys: {
@@ -187,6 +188,21 @@ class Game {
     this.restartBtn.addEventListener("click", () => this.restart());
 
     this.loop = this.loop.bind(this);
+    // pause state
+    this.paused = false;
+    this.audioCtx = null;
+    // power-up state: null or {x,y,type,expiresAt}
+    this.powerUp = null;
+    this.nextPowerUpAt = performance.now() + this.randRange(Config.powerUp.spawnMinSec*1000, Config.powerUp.spawnMaxSec*1000);
+    // active effects per paddle: { left: { until: timestamp, type }, right: { ... } }
+    this.activeEffects = { left: null, right: null };
+    // replay countdown state
+    this.replayCountdown = null; // { until: timestamp }
+
+    // bind pause key (space) — toggle paused
+    document.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); this.togglePause(); }
+    });
   }
 
   // -------------------------------
@@ -232,10 +248,63 @@ class Game {
     this.paddleRight.move(dir * this.paddleRight.speed * 0.9);
   }
 
+  randRange(min, max) { return Math.random() * (max - min) + min; }
+
+  togglePause() { this.paused = !this.paused; if (!this.paused) this.loop(); }
+
   update() {
     if (this.gameOver) return;
     // Update all balls
     for (const b of this.balls) b.update();
+
+    // power-up spawn timer
+    const now = performance.now();
+    if (!this.powerUp && now >= this.nextPowerUpAt) {
+      // spawn a random positioned power-up in the center area
+      const margin = 60;
+      const x = this.randRange(margin, Config.canvas.width - margin);
+      const y = this.randRange(margin, Config.canvas.height - margin);
+      this.powerUp = { x, y, w: Config.powerUp.width, h: Config.powerUp.height, type: null, spawnedAt: now };
+      // schedule removal if not collected
+      this.nextPowerUpAt = now + this.randRange(Config.powerUp.spawnMinSec*1000, Config.powerUp.spawnMaxSec*1000);
+      // choose a random type (1: bigger paddle for hitter, 2: faster ball, 3: give opponent bigger paddle)
+      const t = Math.floor(Math.random()*3)+1; this.powerUp.type = t;
+    }
+
+    // check ball collisions with power-up
+    if (this.powerUp) {
+      for (const b of this.balls) {
+        if (this._ballHitsRect(b, this.powerUp)) {
+          // determine last paddle to hit the ball
+          const hitter = b.lastHit || (b.velocity.x > 0 ? 'p1' : 'p2');
+          const player = (hitter === 'p1') ? 'left' : 'right';
+          this._applyPowerUp(this.powerUp.type, player);
+          this.powerUp = null;
+          break;
+        }
+      }
+    }
+
+    // handle active effect expirations
+    for (const side of ['left','right']) {
+      const eff = this.activeEffects[side];
+      if (eff && eff.until && now >= eff.until) {
+        // revert effects
+        if (eff.type === 'big') {
+          // revert paddle size
+          const p = (side === 'left') ? this.paddleLeft : this.paddleRight;
+          p.height = Config.paddle.height;
+        } else if (eff.type === 'big_opponent') {
+          const p = (side === 'left') ? this.paddleRight : this.paddleLeft;
+          p.height = Config.paddle.height;
+        } else if (eff.type === 'ball_fast') {
+          // revert ball velocities by dividing by factor
+          const factor = eff.factor || 1.6;
+          for (const bb of this.balls) { bb.velocity.x /= factor; bb.velocity.y /= factor; }
+        }
+        this.activeEffects[side] = null;
+      }
+    }
 
     // --- bumper collision (active once combined score reaches configured value) ---
     const bumperActive = ((this.scores.p1 + this.scores.p2) >= Config.bumper.enabledAtScore);
@@ -271,6 +340,7 @@ class Game {
         b.position.y < this.paddleLeft.position.y + this.paddleLeft.height;
       if (hitLeft) {
         b.velocity.x *= -1;
+        b.lastHit = 'p1';
         const delta = b.position.y - (this.paddleLeft.position.y + this.paddleLeft.height / 2);
         b.velocity.y = delta * Config.ball.spinFactor;
         if (typeof b.velocity.x === 'number') b.velocity.x = b.velocity.x * 1.25;
@@ -283,6 +353,7 @@ class Game {
         b.position.y < this.paddleRight.position.y + this.paddleRight.height;
       if (hitRight) {
         b.velocity.x *= -1;
+        b.lastHit = 'p2';
         const delta = b.position.y - (this.paddleRight.position.y + this.paddleRight.height / 2);
         b.velocity.y = delta * Config.ball.spinFactor;
         if (typeof b.velocity.x === 'number') b.velocity.x = b.velocity.x * 1.25;
@@ -293,9 +364,11 @@ class Game {
       // scoring per-ball
       if (b.position.x - b.radius < 0) {
         this.scores.p2++;
+        this.playScoreSound('p2');
         this.checkWin() || b.reset();
       } else if (b.position.x + b.radius > Config.canvas.width) {
         this.scores.p1++;
+        this.playScoreSound('p1');
         this.checkWin() || b.reset();
       }
     }
@@ -344,6 +417,12 @@ class Game {
     if (this.scores.p1 >= Config.rules.winningScore || this.scores.p2 >= Config.rules.winningScore) {
       this.gameOver = true;
       this.restartBtn.style.display = "inline-block";
+      // start a 5s replay countdown then auto-restart
+      this.replayCountdown = { until: performance.now() + 5000 };
+      setTimeout(() => {
+        // only auto-restart if still gameOver
+        if (this.gameOver) this.restart();
+      }, 5000);
       return true;
     }
     return false;
@@ -380,6 +459,80 @@ class Game {
     }
   }
 
+  _ensureAudio() {
+    if (this.audioCtx) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return; // no audio support
+    this.audioCtx = new AudioCtx();
+  }
+
+  playScoreSound(player) {
+    // player: 'p1' or 'p2'
+    this._ensureAudio();
+    if (!this.audioCtx) return;
+    try {
+      const ctx = this.audioCtx;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      // pitch: p1 higher, p2 lower
+      const freq = (player === 'p1') ? 880 : 440;
+      o.frequency.value = freq;
+      g.gain.value = 0.0001;
+      o.connect(g); g.connect(ctx.destination);
+      const now = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(0.18, now + 0.01);
+      o.start(now);
+      g.gain.linearRampToValueAtTime(0.0001, now + 0.18);
+      o.stop(now + 0.2);
+    } catch (e) {
+      // swallow errors silently
+      console.warn('Audio play failed', e);
+    }
+  }
+
+  // simple rect collision for ball and power-up
+  _ballHitsRect(ball, rect) {
+    const bx = ball.position.x;
+    const by = ball.position.y;
+    const rx = rect.x - rect.w/2 || rect.x;
+    const ry = rect.y - rect.h/2 || rect.y;
+    // rect may be stored as center coordinates; handle both
+    const left = rect.x - (rect.w/2);
+    const top = rect.y - (rect.h/2);
+    const right = rect.x + (rect.w/2);
+    const bottom = rect.y + (rect.h/2);
+    // circle-rect approximate: check closest point
+    const cx = Math.max(left, Math.min(bx, right));
+    const cy = Math.max(top, Math.min(by, bottom));
+    const dx = bx - cx; const dy = by - cy;
+    return (dx*dx + dy*dy) <= (ball.radius * ball.radius);
+  }
+
+  _applyPowerUp(type, playerSide) {
+    // playerSide: 'left' or 'right' indicating which paddle last hit the ball
+    const now = performance.now();
+    const dur = Config.powerUp.durationSec * 1000;
+    if (type === 1) {
+      // bigger paddle for hitter
+      const p = (playerSide === 'left') ? this.paddleLeft : this.paddleRight;
+      p.height = Math.min(Config.canvas.height, Config.paddle.height * 1.6);
+      this.activeEffects[playerSide] = { type: 'big', until: now + dur };
+    } else if (type === 2) {
+      // faster ball temporarily
+      const factor = 1.6;
+      for (const b of this.balls) { b.velocity.x *= factor; b.velocity.y *= factor; }
+      this.activeEffects[playerSide] = { type: 'ball_fast', until: now + dur, factor };
+    } else if (type === 3) {
+      // opponent bigger paddle
+      const other = (playerSide === 'left') ? 'right' : 'left';
+      const p = (other === 'left') ? this.paddleLeft : this.paddleRight;
+      p.height = Math.min(Config.canvas.height, Config.paddle.height * 1.6);
+      this.activeEffects[other] = { type: 'big_opponent', until: now + dur };
+    }
+  }
+
   draw() {
     this.renderer.clear(Config.canvas.width, Config.canvas.height);
     // dashed center line to mark halves
@@ -413,6 +566,18 @@ class Game {
       const sp = Math.sqrt(vx * vx + vy * vy);
       if (sp > maxSpeed) maxSpeed = sp;
     }
+    // draw active power-up (as centered rect)
+    if (this.powerUp) {
+      const pu = this.powerUp;
+      this.ctx.save();
+      this.ctx.fillStyle = Config.powerUp.colors.bg;
+      this.ctx.strokeStyle = Config.powerUp.colors.border;
+      this.ctx.lineWidth = 2;
+      const x = pu.x - (pu.w/2), y = pu.y - (pu.h/2);
+      this.ctx.fillRect(x, y, pu.w, pu.h);
+      this.ctx.strokeRect(x, y, pu.w, pu.h);
+      this.ctx.restore();
+    }
     this.renderer.text(this.scores.p1, Config.canvas.width / 4, 50);
     this.renderer.text(this.scores.p2, 3 * Config.canvas.width / 4, 50);
     // Display current (fastest) ball speed for player reference
@@ -421,6 +586,22 @@ class Game {
       this.renderer.text("Game Over", Config.canvas.width / 2 - 80, Config.canvas.height / 2 - 20, Config.visuals.gameOver);
       const msg = this.scores.p1 >= Config.rules.winningScore ? "Player 1 Wins!" : "Player 2 Wins!";
       this.renderer.text(msg, Config.canvas.width / 2 - 120, Config.canvas.height / 2 + 20, Config.visuals.win);
+      // show replay countdown if active
+      if (this.replayCountdown && this.replayCountdown.until) {
+        const secondsLeft = Math.ceil((this.replayCountdown.until - performance.now()) / 1000);
+        this.renderer.text('Restarting in ' + secondsLeft + '...', Config.canvas.width / 2 - 140, Config.canvas.height / 2 + 70, Config.visuals.text);
+      }
+    }
+
+    // paused overlay
+    if (this.paused) {
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      this.ctx.fillRect(0,0,Config.canvas.width, Config.canvas.height);
+      this.ctx.fillStyle = '#fff';
+      this.ctx.font = '36px Arial';
+      this.ctx.fillText('PAUSED', Config.canvas.width/2 - 60, Config.canvas.height/2);
+      this.ctx.restore();
     }
   }
 
@@ -436,6 +617,10 @@ class Game {
     }
     this.gameOver = false;
     this.restartBtn.style.display = "none";
+    // clear power-ups and effects
+    this.powerUp = null;
+    this.activeEffects = { left: null, right: null };
+    this.replayCountdown = null;
   }
 
   loop() {
@@ -481,7 +666,7 @@ startAIBtn.addEventListener('click', function(e){ e.preventDefault(); startGameW
 // Student Challenges (inline TODO checklist)
 // -----------------------------------------
 // 1) Make it YOUR game: change colors in Config.visuals, dimensions/speeds in Config.
-// 2) Add AI: implement simple tracking for right paddle in handleInput (hint above).
+// 2) Add AI: implement simple tracking for right paddle in handleInput (hint above). DONE
 // 3) Rally speed-up: every time the ball hits a paddle, slightly increase |velocity.x|. - Complete
 // 4) Center line + score SFX: draw a dashed midline; play an audio on score.
 // 5) Power-ups: occasionally spawn a small rectangle; when ball hits it, apply effect (bigger paddle? faster ball?).
