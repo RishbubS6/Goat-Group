@@ -1,69 +1,203 @@
 ---
 layout: opencs
-title: Cookie Clicker Game
-permalink: /cookie-clicker-game/
+title: Cookie Clicker
+permalink: /Cookie-Clicker/
 ---
-<!-- Main container with grid layout: 1 column for shop, 3 columns for the game -->
-<div class="grid grid-cols-4 gap-4 aspect-square">
-  <!-- SHOP Section -->
-  <div class="col-span-1 p-4 shadow-lg border-8 border-double border-yellow-800 bg-yellow-100 rounded-xl flex flex-col gap-2 overflow-y-auto" id="shop-container">
-      <!-- Shop title -->
-      <div class="text-xl font-bold mb-4 text-center">SHOP</div>
-      <!-- Upgrade buttons with costs -->
-      <button id="autoClickerBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 mb-2">
-        :older_woman:Grandma (Cost: 69)
-      </button>
-      <button id="cursorBtn"
-          class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 mb-2 rounded shadow">
-        :three_button_mouse: Cursor (Cost: 15)
-      </button>
-      <button id="factoryBtn"
-          class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 mb-2 rounded shadow">
-        :factory: Factory (Cost: 500)
-      </button>
-      <button id="bankBtn"
-          class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 mb-2 rounded shadow">
-        :bank: Bank (Cost: 67410)
-      </button>
-      <button id="templeBtn"
-          class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 mb-2 rounded shadow">
-        :church: Mango temple (Cost: 50000)
-      </button>
-      <button id="chaoticOhioBtn"
-          class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 mb-2 rounded shadow">
-        :hourglass_flowing_sand: Chaotic Ohio (Cost: 6700000)
-      </button>
-  </div>
-  <!-- GAME Section -->
-  <div id="game-area" class="col-span-3 flex flex-col items-center justify-between p-4 bg-yellow-100 rounded-xl shadow-xl border-8 border-double border-yellow-800">
-      <!-- Top section (Title + Counter) -->
-      <div class="text-center">
-          <!-- Game title -->
-          <div class="relative z-10 text-5xl font-extrabold text-yellow-900 drop-shadow-lg tracking-wide whitespace-nowrap">
-              :cookie: Cookie Clicker
+import React, { useState, useEffect } from 'react';
+
+export default function CookieClicker() {
+  const [cookies, setCookies] = useState(0);
+  const [upgrades, setUpgrades] = useState({
+    cursor: { count: 0, baseCost: 15, cps: 0.1 },
+    grandma: { count: 0, baseCost: 69, cps: 1 },
+    factory: { count: 0, baseCost: 500, cps: 8 },
+    bank: { count: 0, baseCost: 67410, cps: 47 },
+    temple: { count: 0, baseCost: 50000, cps: 260 },
+    ohio: { count: 0, baseCost: 6700000, cps: 1400 }
+  });
+
+  // Load game state from localStorage on mount
+  useEffect(() => {
+    const savedCookies = localStorage.getItem('cookies');
+    const savedUpgrades = localStorage.getItem('upgrades');
+    
+    if (savedCookies) setCookies(Number(savedCookies));
+    if (savedUpgrades) setUpgrades(JSON.parse(savedUpgrades));
+  }, []);
+
+  // Save to localStorage whenever cookies or upgrades change
+  useEffect(() => {
+    localStorage.setItem('cookies', cookies.toString());
+    localStorage.setItem('upgrades', JSON.stringify(upgrades));
+  }, [cookies, upgrades]);
+
+  // Auto-generate cookies based on upgrades
+  useEffect(() => {
+    const totalCps = Object.values(upgrades).reduce((sum, upgrade) => 
+      sum + (upgrade.count * upgrade.cps), 0
+    );
+    
+    if (totalCps > 0) {
+      const interval = setInterval(() => {
+        setCookies(prev => prev + totalCps / 10);
+      }, 100);
+      
+      return () => clearInterval(interval);
+    }
+  }, [upgrades]);
+
+  // Calculate current cost with scaling (1.15x multiplier per purchase)
+  const getCurrentCost = (upgrade) => {
+    return Math.floor(upgrade.baseCost * Math.pow(1.15, upgrade.count));
+  };
+
+  // Handle cookie click
+  const handleCookieClick = () => {
+    setCookies(prev => prev + 1);
+  };
+
+  // Handle upgrade purchase
+  const buyUpgrade = (upgradeKey) => {
+    const upgrade = upgrades[upgradeKey];
+    const cost = getCurrentCost(upgrade);
+    
+    if (cookies >= cost) {
+      setCookies(prev => prev - cost);
+      setUpgrades(prev => ({
+        ...prev,
+        [upgradeKey]: {
+          ...prev[upgradeKey],
+          count: prev[upgradeKey].count + 1
+        }
+      }));
+    }
+  };
+
+  const totalCps = Object.values(upgrades).reduce((sum, upgrade) => 
+    sum + (upgrade.count * upgrade.cps), 0
+  );
+
+  return (
+    <div className="grid grid-cols-4 gap-4 h-screen bg-gradient-to-br from-yellow-50 to-orange-50 p-4">
+      {/* SHOP Section */}
+      <div className="col-span-1 p-4 shadow-lg border-8 border-double border-yellow-800 bg-yellow-100 rounded-xl flex flex-col gap-2 overflow-y-auto">
+        <div className="text-xl font-bold mb-4 text-center text-yellow-900">🏪 SHOP</div>
+        
+        <button
+          onClick={() => buyUpgrade('cursor')}
+          disabled={cookies < getCurrentCost(upgrades.cursor)}
+          className={`px-4 py-3 rounded shadow transition-all ${
+            cookies >= getCurrentCost(upgrades.cursor)
+              ? 'bg-green-500 hover:bg-green-600 text-white'
+              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+          }`}
+        >
+          <div className="font-bold">🖱️ Cursor</div>
+          <div className="text-sm">Cost: {getCurrentCost(upgrades.cursor)}</div>
+          <div className="text-xs">Owned: {upgrades.cursor.count}</div>
+        </button>
+
+        <button
+          onClick={() => buyUpgrade('grandma')}
+          disabled={cookies < getCurrentCost(upgrades.grandma)}
+          className={`px-4 py-3 rounded shadow transition-all ${
+            cookies >= getCurrentCost(upgrades.grandma)
+              ? 'bg-blue-500 hover:bg-blue-600 text-white'
+              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+          }`}
+        >
+          <div className="font-bold">👵 Grandma</div>
+          <div className="text-sm">Cost: {getCurrentCost(upgrades.grandma)}</div>
+          <div className="text-xs">Owned: {upgrades.grandma.count}</div>
+        </button>
+
+        <button
+          onClick={() => buyUpgrade('factory')}
+          disabled={cookies < getCurrentCost(upgrades.factory)}
+          className={`px-4 py-3 rounded shadow transition-all ${
+            cookies >= getCurrentCost(upgrades.factory)
+              ? 'bg-purple-500 hover:bg-purple-600 text-white'
+              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+          }`}
+        >
+          <div className="font-bold">🏭 Factory</div>
+          <div className="text-sm">Cost: {getCurrentCost(upgrades.factory)}</div>
+          <div className="text-xs">Owned: {upgrades.factory.count}</div>
+        </button>
+
+        <button
+          onClick={() => buyUpgrade('bank')}
+          disabled={cookies < getCurrentCost(upgrades.bank)}
+          className={`px-4 py-3 rounded shadow transition-all ${
+            cookies >= getCurrentCost(upgrades.bank)
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+          }`}
+        >
+          <div className="font-bold">🏦 Bank</div>
+          <div className="text-sm">Cost: {getCurrentCost(upgrades.bank)}</div>
+          <div className="text-xs">Owned: {upgrades.bank.count}</div>
+        </button>
+
+        <button
+          onClick={() => buyUpgrade('temple')}
+          disabled={cookies < getCurrentCost(upgrades.temple)}
+          className={`px-4 py-3 rounded shadow transition-all ${
+            cookies >= getCurrentCost(upgrades.temple)
+              ? 'bg-indigo-500 hover:bg-indigo-600 text-white'
+              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+          }`}
+        >
+          <div className="font-bold">⛪ Mango Temple</div>
+          <div className="text-sm">Cost: {getCurrentCost(upgrades.temple)}</div>
+          <div className="text-xs">Owned: {upgrades.temple.count}</div>
+        </button>
+
+        <button
+          onClick={() => buyUpgrade('ohio')}
+          disabled={cookies < getCurrentCost(upgrades.ohio)}
+          className={`px-4 py-3 rounded shadow transition-all ${
+            cookies >= getCurrentCost(upgrades.ohio)
+              ? 'bg-purple-600 hover:bg-purple-700 text-white'
+              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+          }`}
+        >
+          <div className="font-bold">⏳ Chaotic Ohio</div>
+          <div className="text-sm">Cost: {getCurrentCost(upgrades.ohio)}</div>
+          <div className="text-xs">Owned: {upgrades.ohio.count}</div>
+        </button>
+      </div>
+
+      {/* GAME Section */}
+      <div className="col-span-3 flex flex-col items-center justify-between p-4 bg-yellow-100 rounded-xl shadow-xl border-8 border-double border-yellow-800">
+        {/* Top section */}
+        <div className="text-center">
+          <div className="text-5xl font-extrabold text-yellow-900 drop-shadow-lg tracking-wide">
+            🍪 Cookie Clicker
           </div>
-          <!-- Cookie counter -->
-          <div id="counter" class="relative z-10 mt-2 text-xl font-semibold text-yellow-900">
-              Cookies: <span id="cookie-count" class="font-bold text-yellow-700">0</span>
+          <div className="mt-2 text-2xl font-semibold text-yellow-900">
+            Cookies: <span className="font-bold text-yellow-700">{Math.floor(cookies)}</span>
           </div>
+          <div className="mt-1 text-lg text-yellow-800">
+            Per second: <span className="font-bold">{totalCps.toFixed(1)}</span>
+          </div>
+        </div>
+
+        {/* Middle section - Clickable Cookie */}
+        <button
+          onClick={handleCookieClick}
+          className="w-48 h-48 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full cursor-pointer shadow-2xl hover:scale-105 active:scale-95 transition-transform duration-200 ease-out flex items-center justify-center border-4 border-amber-600 text-8xl"
+        >
+          🍪
+        </button>
+
+        {/* Bottom section */}
+        <div className="text-center bg-yellow-200/70 px-6 py-3 rounded-lg shadow border border-yellow-400">
+          <span className="font-semibold text-yellow-900">
+            Click the cookie to earn cookies! Buy upgrades to automate production.
+          </span>
+        </div>
       </div>
-      <!-- Middle section (Clickable Cookie) -->
-      <div id="cookie"
-          class="relative z-10 w-48 h-48 bg-cover bg-center rounded-full cursor-pointer shadow-lg hover:scale-105 active:scale-95 transition-transform duration-200 ease-out flex items-center justify-center bg-amber-200 border-4 border-amber-400">
-          <!-- Cookie image -->
-          <img src="{{site.baseurl}}/hacks/cookie-clicker/assets/baseCookie.png" class="w-full h-full rounded-full select-none pointer-events-none" />
-      </div>
-      <!-- Bottom section (Lesson/Docs link) -->
-      <div id="lesson-info" class="relative z-10 text-center bg-yellow-200/70 px-6 py-3 rounded-lg shadow border border-yellow-400">
-          <span class="font-semibold text-brown-800">Add your own feature:</span>
-          <!-- Link to documentation -->
-          <a href="/cookie-clicker-game-docs/" target="_blank" class="text-blue-600 hover:underline ml-2">
-              Click here
-          </a>
-      </div>
-  </div>
-</div>
-<!-- TailwindCSS framework -->
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- Game logic script (external JS file) -->
-<script src="{{site.baseurl}}/hacks/cookie-clicker/cookie-clicker-game.js"></script>
+    </div>
+  );
+}
