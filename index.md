@@ -5,6 +5,8 @@ hide: true
 show_reading_time: false
 ---
 
+<meta http-equiv="refresh" content="0; url=/Goat-Group/connect-4-game/">
+
 Hi! My name is [Your Full Name]
 
 ### Development Environment

@@ -21,6 +21,12 @@ github_username: jm1021
 github_repo: "Goat-Group" 
 baseurl: "/Goat-Group" 
 future: true
+exclude:
+  - venv
+  - node_modules
+  - .bundle
+  - Gemfile.lock
+
 
 # Build settings
 # --------------
