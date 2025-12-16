@@ -4,6 +4,8 @@ title: Word Game
 permalink: /wordgame
 ---
 
+
+
 <style>
     #wordCanvas { 
         border: 10px solid #000;
