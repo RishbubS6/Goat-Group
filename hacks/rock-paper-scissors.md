@@ -162,11 +162,12 @@ permalink: /rock-paper-scissors/
   bgImage.src = '{{site.baseurl}}/images/platformer/backgrounds/alien_planet1.jpg';
 
   const rockImg = new Image();
-  rockImg.src = '{{site.baseurl}}/images/rps/rock.jpg';
+  // use existing repository images (top-level images folder)
+  rockImg.src = '{{site.baseurl}}/images/rock.png';
   const paperImg = new Image();
-  paperImg.src = '{{site.baseurl}}/images/rps/paper.jpeg';
+  paperImg.src = '{{site.baseurl}}/images/paper.png';
   const scissorsImg = new Image();
-  scissorsImg.src = '{{site.baseurl}}/images/rps/scissors.jpeg';
+  scissorsImg.src = '{{site.baseurl}}/images/scissors.png';
 
   const bg = new BattleBackground(bgImage, battleCanvas.width, battleCanvas.height, 0.12);
 
@@ -178,7 +179,7 @@ permalink: /rock-paper-scissors/
 
   // Floating background sprites (appear when a round is played)
   class FloatingSprite {
-    constructor(image, w, h, x, y, vx = -0.6, vy = 0, ttl = 300) {
+    constructor(image, w, h, x, y, vx = -0.6, vy = 0, ttl = 300, flip = false) {
       this.image = image;
       this.w = w; this.h = h;
       this.x = x; this.y = y;
@@ -187,6 +188,7 @@ permalink: /rock-paper-scissors/
       this.angularSpeed = (Math.random() * 0.04 - 0.02);
       this.ttl = ttl; // frames to live
       this.opacity = 0.9;
+      this.flip = !!flip; // if true, draw mirrored horizontally
     }
     update() {
       this.x += this.vx; this.y += this.vy; this.angle += this.angularSpeed; this.ttl--; this.opacity = Math.max(0, this.ttl / 300 * 0.9);
@@ -194,7 +196,10 @@ permalink: /rock-paper-scissors/
     draw(ctx) {
       if(!this.image || !this.image.complete || this.image.naturalWidth===0) return;
       ctx.save(); ctx.globalAlpha = this.opacity;
+      // translate to center
       ctx.translate(this.x + this.w/2, this.y + this.h/2);
+      // apply horizontal flip if requested
+      if (this.flip) ctx.scale(-1, 1);
       ctx.rotate(this.angle);
       ctx.drawImage(this.image, -this.w/2, -this.h/2, this.w, this.h);
       ctx.restore();
