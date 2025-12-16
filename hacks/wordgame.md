@@ -31,6 +31,7 @@ permalink: /wordgame
 </style>
 
 
+
 <h2>Word Game</h2>
 <p>Select a game mode (string length) from the options menu and try to type the prompt as quickly and accurately as possible!</p>
 
@@ -255,3 +256,5 @@ permalink: /wordgame
         document.body.appendChild(menu);
     };
 </script>
+
+
