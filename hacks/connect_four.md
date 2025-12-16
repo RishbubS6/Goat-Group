@@ -51,4 +51,4 @@ permalink: /connect-4-game/
 </div>
 
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="{{site.baseurl}}/hacks/connect4/connect4.js"></script> 
+<script src="{{site.baseurl}}/hacks/connect4/connect4.js"></script>
