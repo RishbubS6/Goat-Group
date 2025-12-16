@@ -624,6 +624,11 @@ class Game {
   }
 
   loop() {
+    // If paused, render one paused frame (overlay) and stop scheduling updates.
+    if (this.paused) {
+      this.draw();
+      return;
+    }
     this.handleInput();
     this.update();
     this.draw();
