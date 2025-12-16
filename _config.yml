@@ -26,6 +26,8 @@ exclude:
   - node_modules
   - .bundle
   - Gemfile.lock
+  - vendor
+  - vendor/bundle
 
 
 # Build settings
