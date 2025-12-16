@@ -5,6 +5,8 @@ permalink: /javascript/project/blackjack
 ---
 
 <script>
+document.addEventListener("DOMContentLoaded", function () {
+
 function startGame() {
     document.getElementById("menu").style.display = "none";
     document.getElementById("how-to").style.display = "none";
@@ -24,8 +26,8 @@ function goBack() {
 
 const dealerCardsEl = document.getElementById("dealer-cards");
 const playerCardsEl = document.getElementById("player-cards");
-const dealerScoreEl = document.getElementById("dealer-score");
-const playerScoreEl = document.getElementById("player-score");
+const dealerScoreEl = document.getElementById("dealer-points");
+const playerScoreEl = document.getElementById("player-points");
 const messageEl = document.getElementById("message");
 
 const newGameBtn = document.getElementById("new-game-btn");
@@ -37,14 +39,11 @@ let playerHand = [];
 let dealerHand = [];
 let gameOver = false;
 
-/* ===== BET PROGRESSION SYSTEM ===== */
 let maxBet = 100;
 
 function resetBets() {
     maxBet = 100;
 }
-
-/* ================================ */
 
 function createDeck() {
     const suits = ["♠", "♥", "♦", "♣"];
@@ -117,8 +116,7 @@ function renderDealerInitial() {
     hiddenCard.textContent = "🂠";
     dealerCardsEl.appendChild(hiddenCard);
 
-    document.getElementById("dealer-points").textContent =
-        getCardValue(firstCard);
+    dealerScoreEl.textContent = getCardValue(firstCard);
 }
 
 function updateScores() {
@@ -168,7 +166,7 @@ function newGame() {
     dealerHand = [deck.pop(), deck.pop()];
     gameOver = false;
 
-    renderHand(playerHand, playerCardsEl, document.getElementById("player-points"));
+    renderHand(playerHand, playerCardsEl, playerScoreEl);
     renderDealerInitial();
     messageEl.textContent =
         "Current max bet: $" + maxBet + ". Your move.";
@@ -177,7 +175,7 @@ function newGame() {
 function hit() {
     if (gameOver) return;
     playerHand.push(deck.pop());
-    renderHand(playerHand, playerCardsEl, document.getElementById("player-points"));
+    renderHand(playerHand, playerCardsEl, playerScoreEl);
     if (calculateHand(playerHand) > 21) checkGameOver();
 }
 
@@ -190,16 +188,9 @@ function stand() {
     dealerCardsEl.children[1].style.color =
         (dealerHand[1].suit === "♥" || dealerHand[1].suit === "♦") ? "red" : "black";
 
-    document.getElementById("dealer-points").textContent =
-        calculateHand(dealerHand);
-
     while (calculateHand(dealerHand) < 17) {
         dealerHand.push(deck.pop());
-        renderHand(
-            dealerHand,
-            dealerCardsEl,
-            document.getElementById("dealer-points")
-        );
+        renderHand(dealerHand, dealerCardsEl, dealerScoreEl);
     }
 
     updateScores();
@@ -210,4 +201,6 @@ function stand() {
 newGameBtn.addEventListener("click", newGame);
 hitBtn.addEventListener("click", hit);
 standBtn.addEventListener("click", stand);
+
+});
 </script>
