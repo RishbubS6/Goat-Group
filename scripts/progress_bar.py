@@ -1,4 +1,4 @@
-from progress.bar import ChargingBar
+from progress.bar import ChargingBar # type: ignore
 
 # progress bar to tell how far along the code is
 # configurable title
