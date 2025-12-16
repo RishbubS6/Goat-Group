@@ -3,6 +3,7 @@ layout: opencs
 title: Blackjack Card Game
 permalink: /javascript/project/blackjack
 ---
+
 <script>
 function startGame() {
     document.getElementById("menu").style.display = "none";
