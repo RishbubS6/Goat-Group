@@ -1,6 +1,5 @@
 ---
-layout: default
-title: Blackjack Card Game
+layout: null
 permalink: /javascript/project/blackjack
 ---
 
