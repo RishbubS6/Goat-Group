@@ -5,8 +5,7 @@ permalink: /Cookie-Clicker/
 ---
 <script src="https://cdn.tailwindcss.com"></script>
 
-<div class="grid grid-cols-4 gap-4 h-screen bg-gradient-to-br from-yellow-50 to-orange-50 p-4">
-    <!-- SHOP Section -->
+<div id="cookie-game" class="grid grid-cols-4 gap-4 h-screen bg-gradient-to-br from-yellow-50 to-orange-50 p-4">
     <div class="col-span-1 p-4 shadow-lg border-8 border-double border-yellow-800 bg-yellow-100 rounded-xl flex flex-col gap-2 overflow-y-auto">
         <div class="text-xl font-bold mb-4 text-center text-yellow-900">🏪 SHOP</div>
         
@@ -18,38 +17,36 @@ permalink: /Cookie-Clicker/
 
         <button id="btn-grandma" class="px-4 py-3 rounded shadow transition-all">
             <div class="font-bold">👵 Grandma</div>
-            <div class="text-sm" id="cost-grandma">Cost: 20</div>
+            <div class="text-sm" id="cost-grandma">Cost: 700</div>
             <div class="text-xs" id="count-grandma">Owned: 0</div>
         </button>
 
         <button id="btn-factory" class="px-4 py-3 rounded shadow transition-all">
             <div class="font-bold">🏭 Factory</div>
-            <div class="text-sm" id="cost-factory">Cost: 500</div>
+            <div class="text-sm" id="cost-factory">Cost: 5000</div>
             <div class="text-xs" id="count-factory">Owned: 0</div>
         </button>
 
         <button id="btn-bank" class="px-4 py-3 rounded shadow transition-all">
             <div class="font-bold">🏦 Bank</div>
-            <div class="text-sm" id="cost-bank">Cost: 6000</div>
+            <div class="text-sm" id="cost-bank">Cost: 60000</div>
             <div class="text-xs" id="count-bank">Owned: 0</div>
         </button>
 
         <button id="btn-temple" class="px-4 py-3 rounded shadow transition-all">
             <div class="font-bold">⛪ Mango Temple</div>
-            <div class="text-sm" id="cost-temple">Cost: 50000</div>
+            <div class="text-sm" id="cost-temple">Cost: 500000</div>
             <div class="text-xs" id="count-temple">Owned: 0</div>
         </button>
 
         <button id="btn-ohio" class="px-4 py-3 rounded shadow transition-all">
             <div class="font-bold">⏳ Chaotic Ohio</div>
-            <div class="text-sm" id="cost-ohio">Cost: 200000</div>
+            <div class="text-sm" id="cost-ohio">Cost: 2000000</div>
             <div class="text-xs" id="count-ohio">Owned: 0</div>
         </button>
     </div>
 
-    <!-- GAME Section -->
     <div class="col-span-3 flex flex-col items-center justify-between p-4 bg-yellow-100 rounded-xl shadow-xl border-8 border-double border-yellow-800">
-        <!-- Top section -->
         <div class="text-center">
             <div class="text-5xl font-extrabold text-yellow-900 drop-shadow-lg tracking-wide">
                 🍪 Cookie Clicker
@@ -62,12 +59,10 @@ permalink: /Cookie-Clicker/
             </div>
         </div>
 
-        <!-- Middle section - Clickable Cookie -->
         <button id="cookie-button" class="w-48 h-48 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full cursor-pointer shadow-2xl hover:scale-105 active:scale-95 transition-transform duration-200 ease-out flex items-center justify-center border-4 border-amber-600 text-8xl">
             🍪
         </button>
 
-        <!-- Bottom section -->
         <div class="text-center bg-yellow-200/70 px-6 py-3 rounded-lg shadow border border-yellow-400">
             <span class="font-semibold text-yellow-900">
                 Click the cookie to earn cookies! Buy upgrades to automate production.
@@ -77,9 +72,9 @@ permalink: /Cookie-Clicker/
 </div>
 
 <script>
-    // Game state
-    let cookies = 0;
-    const upgrades = {
+(function() {
+    var cookies = 0;
+    var upgrades = {
         cursor: { count: 0, baseCost: 10, cps: 0.1 },
         grandma: { count: 0, baseCost: 700, cps: 1 },
         factory: { count: 0, baseCost: 5000, cps: 8 },
@@ -88,155 +83,66 @@ permalink: /Cookie-Clicker/
         ohio: { count: 0, baseCost: 2000000, cps: 1400 }
     };
 
-    // Calculate current cost with scaling
-    function getCurrentCost(upgrade) {
-        return Math.floor(upgrade.baseCost * Math.pow(1.15, upgrade.count));
-    }
-
-    // Calculate total cookies per second
-    function getTotalCps() {
-        return Object.values(upgrades).reduce((sum, upgrade) => 
-            sum + (upgrade.count * upgrade.cps), 0
-        );
-    }
-
-    // Update display
-    function updateDisplay() {
-        document.getElementById('cookie-count').textContent = Math.floor(cookies);
-        document.getElementById('cps-display').textContent = getTotalCps().toFixed(1);
-
-        // Update each upgrade button
-        for (const [key, upgrade] of Object.entries(upgrades)) {
-            const cost = getCurrentCost(upgrade);
-            const button = document.getElementById(`btn-${key}`);
-            
-            document.getElementById(`cost-${key}`).textContent = `Cost: ${cost}`;
-            document.getElementById(`count-${key}`).textContent = `Owned: ${upgrade.count}`;
-
-            // Update button styles based on affordability
-            if (cookies >= cost) {
-                button.className = 'px-4 py-3 rounded shadow transition-all bg-green-500 hover:bg-green-600 text-white';
-                button.disabled = false;
-            } else {
-                button.className = 'px-4 py-3 rounded shadow transition-all bg-gray-400 text-gray-200 cursor-not-allowed';
-                button.disabled = true;
-            }
-        }
-    }
-
-    // Handle cookie click
-    document.getElementById('cookie-button').addEventListener('click', () => {
-        cookies += 1;
-        updateDisplay();
-    });
-
-    // Handle upgrade purchases
-    function buyUpgrade(upgradeKey) {
-        const upgrade = upgrades[upgradeKey];
-        const cost = getCurrentCost(upgrade);
-        
-        if (cookies >= cost) {
-            cookies -= cost;
-            upgrade.count += 1;
-            updateDisplay();
-        }
-    }
-
-    // Set up upgrade button listeners
-    document.getElementById('btn-cursor').addEventListener('click', () => buyUpgrade('cursor'));
-    document.getElementById('btn-grandma').addEventListener('click', () => buyUpgrade('grandma'));
-    document.getElementById('btn-factory').addEventListener('click', () => buyUpgrade('factory'));
-    document.getElementById('btn-bank').addEventListener('click', () => buyUpgrade('bank'));
-    document.getElementById('btn-temple').addEventListener('click', () => buyUpgrade('temple'));
-    document.getElementById('btn-ohio').addEventListener('click', () => buyUpgrade('ohio'));
-
-    // Auto-generate cookies
-    setInterval(() => {
-        const totalCps = getTotalCps();
-        if (totalCps > 0) {
-            cookies += totalCps / 10; // Update every 100ms
-            updateDisplay();
-        }
-    }, 100);
-
-    // Initial display update
-    updateDisplay();
-</script>
-// Load game state from storage or use defaults
-    let cookies = 0;
-    const upgrades = {
-        cursor: { count: 0, baseCost: 10, cps: 0.1 },
-        grandma: { count: 0, baseCost: 700, cps: 1 },
-        factory: { count: 0, baseCost: 5000, cps: 8 },
-        bank: { count: 0, baseCost: 60000, cps: 47 },
-        temple: { count: 0, baseCost: 500000, cps: 260 },
-        ohio: { count: 0, baseCost: 2000000, cps: 1400 }
-    };
-
-    // Load saved data
-    async function loadGame() {
+    function loadGame() {
         try {
-            const savedCookies = await window.storage.get('cookie_clicker_cookies');
-            const savedUpgrades = await window.storage.get('cookie_clicker_upgrades');
+            var savedCookies = localStorage.getItem('cookie_clicker_cookies');
+            var savedUpgrades = localStorage.getItem('cookie_clicker_upgrades');
             
-            if (savedCookies && savedCookies.value) {
-                cookies = parseFloat(savedCookies.value);
+            if (savedCookies) {
+                cookies = parseFloat(savedCookies);
             }
             
-            if (savedUpgrades && savedUpgrades.value) {
-                const loaded = JSON.parse(savedUpgrades.value);
-                for (const key in loaded) {
+            if (savedUpgrades) {
+                var loaded = JSON.parse(savedUpgrades);
+                for (var key in loaded) {
                     if (upgrades[key]) {
                         upgrades[key].count = loaded[key].count;
                     }
                 }
             }
         } catch (error) {
-            console.log('No saved game found or error loading:', error);
+            console.log('No saved game found');
         }
         updateDisplay();
     }
 
-    // Save game data
-    async function saveGame() {
+    function saveGame() {
         try {
-            await window.storage.set('cookie_clicker_cookies', cookies.toString());
-            const upgradeData = {};
-            for (const key in upgrades) {
+            localStorage.setItem('cookie_clicker_cookies', cookies.toString());
+            var upgradeData = {};
+            for (var key in upgrades) {
                 upgradeData[key] = { count: upgrades[key].count };
             }
-            await window.storage.set('cookie_clicker_upgrades', JSON.stringify(upgradeData));
+            localStorage.setItem('cookie_clicker_upgrades', JSON.stringify(upgradeData));
         } catch (error) {
-            console.log('Error saving game:', error);
+            console.log('Error saving game');
         }
     }
 
-    // Calculate current cost with scaling
     function getCurrentCost(upgrade) {
         return Math.floor(upgrade.baseCost * Math.pow(1.15, upgrade.count));
     }
 
-    // Calculate total cookies per second
     function getTotalCps() {
-        return Object.values(upgrades).reduce((sum, upgrade) => 
-            sum + (upgrade.count * upgrade.cps), 0
-        );
+        var total = 0;
+        for (var key in upgrades) {
+            total += upgrades[key].count * upgrades[key].cps;
+        }
+        return total;
     }
 
-    // Update display
     function updateDisplay() {
         document.getElementById('cookie-count').textContent = Math.floor(cookies);
         document.getElementById('cps-display').textContent = getTotalCps().toFixed(1);
 
-        // Update each upgrade button
-        for (const [key, upgrade] of Object.entries(upgrades)) {
-            const cost = getCurrentCost(upgrade);
-            const button = document.getElementById(`btn-${key}`);
+        for (var key in upgrades) {
+            var upgrade = upgrades[key];
+            var cost = getCurrentCost(upgrade);
+            var button = document.getElementById('btn-' + key);
             
-            document.getElementById(`cost-${key}`).textContent = `Cost: ${cost}`;
-            document.getElementById(`count-${key}`).textContent = `Owned: ${upgrade.count}`;
+            document.getElementById('cost-' + key).textContent = 'Cost: ' + cost;
+            document.getElementById('count-' + key).textContent = 'Owned: ' + upgrade.count;
 
-            // Update button styles based on affordability
             if (cookies >= cost) {
                 button.className = 'px-4 py-3 rounded shadow transition-all bg-green-500 hover:bg-green-600 text-white';
                 button.disabled = false;
@@ -247,17 +153,9 @@ permalink: /Cookie-Clicker/
         }
     }
 
-    // Handle cookie click
-    document.getElementById('cookie-button').addEventListener('click', () => {
-        cookies += 1;
-        updateDisplay();
-        saveGame();
-    });
-
-    // Handle upgrade purchases
     function buyUpgrade(upgradeKey) {
-        const upgrade = upgrades[upgradeKey];
-        const cost = getCurrentCost(upgrade);
+        var upgrade = upgrades[upgradeKey];
+        var cost = getCurrentCost(upgrade);
         
         if (cookies >= cost) {
             cookies -= cost;
@@ -267,28 +165,31 @@ permalink: /Cookie-Clicker/
         }
     }
 
-    // Set up upgrade button listeners
-    document.getElementById('btn-cursor').addEventListener('click', () => buyUpgrade('cursor'));
-    document.getElementById('btn-grandma').addEventListener('click', () => buyUpgrade('grandma'));
-    document.getElementById('btn-factory').addEventListener('click', () => buyUpgrade('factory'));
-    document.getElementById('btn-bank').addEventListener('click', () => buyUpgrade('bank'));
-    document.getElementById('btn-temple').addEventListener('click', () => buyUpgrade('temple'));
-    document.getElementById('btn-ohio').addEventListener('click', () => buyUpgrade('ohio'));
+    document.getElementById('cookie-button').addEventListener('click', function() {
+        cookies += 1;
+        updateDisplay();
+        saveGame();
+    });
 
-    // Auto-generate cookies
-    setInterval(() => {
-        const totalCps = getTotalCps();
+    document.getElementById('btn-cursor').addEventListener('click', function() { buyUpgrade('cursor'); });
+    document.getElementById('btn-grandma').addEventListener('click', function() { buyUpgrade('grandma'); });
+    document.getElementById('btn-factory').addEventListener('click', function() { buyUpgrade('factory'); });
+    document.getElementById('btn-bank').addEventListener('click', function() { buyUpgrade('bank'); });
+    document.getElementById('btn-temple').addEventListener('click', function() { buyUpgrade('temple'); });
+    document.getElementById('btn-ohio').addEventListener('click', function() { buyUpgrade('ohio'); });
+
+    setInterval(function() {
+        var totalCps = getTotalCps();
         if (totalCps > 0) {
-            cookies += totalCps / 10; // Update every 100ms
+            cookies += totalCps / 10;
             updateDisplay();
         }
     }, 100);
 
-    // Save game every 5 seconds
-    setInterval(() => {
+    setInterval(function() {
         saveGame();
     }, 5000);
 
-    // Load game on start
     loadGame();
+})();
 </script>
