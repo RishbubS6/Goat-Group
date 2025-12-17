@@ -97,6 +97,37 @@ document.addEventListener('DOMContentLoaded', () => {
     return s;
   }
 
+  // Levenshtein distance (iterative) for fuzzy matching
+  function levenshtein(a, b) {
+    const la = a.length, lb = b.length;
+    if (la === 0) return lb;
+    if (lb === 0) return la;
+    const v0 = new Array(lb + 1).fill(0);
+    const v1 = new Array(lb + 1).fill(0);
+    for (let j = 0; j <= lb; j++) v0[j] = j;
+    for (let i = 0; i < la; i++) {
+      v1[0] = i + 1;
+      for (let j = 0; j < lb; j++) {
+        const cost = a[i] === b[j] ? 0 : 1;
+        v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
+      }
+      for (let j = 0; j <= lb; j++) v0[j] = v1[j];
+    }
+    return v1[lb];
+  }
+
+  // fuzzyMatch returns true when strings are similar enough to be accepted
+  function fuzzyMatch(userNorm, targetNorm) {
+    if (!userNorm || !targetNorm) return false;
+    if (userNorm === targetNorm) return true;
+    // allow substring matches (user typed partial but clearly intended)
+    if (targetNorm.includes(userNorm) || userNorm.includes(targetNorm)) return true;
+    const dist = levenshtein(userNorm, targetNorm);
+    // allow up to max(1, 20% of target length)
+    const maxAllow = Math.max(1, Math.floor(targetNorm.length * 0.2));
+    return dist <= maxAllow;
+  }
+
   function startMode(mode) {
     state.mode = mode;
     if (modeSelect) modeSelect.style.display = 'none';
@@ -528,7 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
     attemptsEl.textContent = state.attempts;
     const norm = normalizeAnswer(text);
     const correctNorm = normalizeAnswer(state.correctName.replace(/-/g,' '));
-    const accepted = (norm === correctNorm) || (norm === 'ditto');
+    const accepted = fuzzyMatch(norm, correctNorm) || (norm === 'ditto');
     if (accepted) {
       state.currentRunScore = (state.currentRunScore || 0) + 1;
       scoreEl.textContent = state.currentRunScore;
