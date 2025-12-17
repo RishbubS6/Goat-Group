@@ -60,6 +60,25 @@ Scrums: Joshika, Adam, Ayden, Kashyap
 
 <br>
 
+### Hacks
+
+> Quick links to all hacks in the `hacks/` folder.
+
+<div style="display:flex; flex-wrap:wrap; gap:10px;">
+{% assign colors = "#e74c3c,#3498db,#2ecc71,#f1c40f,#9b59b6,#1abc9c,#e67e22,#34495e,#7f8c8d,#d35400" | split: "," %}
+{% assign hack_pages = site.pages | where_exp: "p", "p.path contains 'hacks/'" %}
+{% for p in hack_pages %}
+    {% assign idx = forloop.index0 | modulo: colors.size %}
+    {% assign color = colors[idx] %}
+    <a href="{{ p.url | prepend: site.baseurl }}" style="text-decoration:none;">
+        <div style="background-color: {{ color }}; color: white; padding:10px 16px; border-radius:6px; font-weight:600;">
+            {{ p.title | default: p.path | replace: 'hacks/','' | replace: '.md','' | replace: '.markdown','' }}
+        </div>
+    </a>
+{% endfor %}
+</div>
+
+
 <!-- Contact Section -->
 ### Get in Touch
 
