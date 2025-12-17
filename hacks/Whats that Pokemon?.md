@@ -14,15 +14,16 @@ toc: false
   <div id="modeSelect" style="position:relative; margin:10px auto 18px; display:flex; gap:12px; justify-content:center;">
     <button id="modeEasy">Easy (4-choice)</button>
     <button id="modeMedium">Medium (type answer)</button>
+    <button id="modeHard">Hard (pixel sprites)</button>
   </div>
   <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom:8px;">
-    <div style="text-align:left;">Score: <span id="score">0</span> &nbsp; Highscore: <span id="highscore">0</span> / Attempts: <span id="attempts">0</span></div>
+    <div style="text-align:left;">Score: <span id="score">0</span> &nbsp; Highscore (Easy): <span id="highscore-easy">0</span> &nbsp; Medium: <span id="highscore-medium">0</span> &nbsp; Hard: <span id="highscore-hard">0</span> / Attempts: <span id="attempts">0</span></div>
     <button id="skipBtn">Skip</button>
     <button id="newBtn">New</button>
   </div>
   <canvas id="pokeCanvas" width="480" height="360" style="border:1px solid #ccc; background:transparent; display:block; margin:0 auto 12px;"></canvas>
   <div id="options" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
-  <div id="typeInput" style="display:none; gap:8px; justify-content:center; margin-top:8px;"></div>
+  <div id="typeInput" style="display:none; gap:8px; justify-content:center; margin-top:8px; flex-direction:column; align-items:center;"></div>
   <div id="feedback" style="height:28px; margin-top:10px; color:#111;"></div>
   <div id="timer" style="height:20px; margin-top:6px; color:#555; font-weight:600;"></div>
   <div id="gameOver" style="display:none; position:fixed; left:0; right:0; top:0; bottom:0; background:rgba(0,0,0,0.7); color:#fff; align-items:center; justify-content:center; text-align:center; padding:20px; font-size:20px; z-index:9999;">
@@ -49,21 +50,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const attemptsEl = document.getElementById('attempts');
   const feedbackEl = document.getElementById('feedback');
   const typeInputEl = document.getElementById('typeInput');
+  const timerEl = document.getElementById('timer');
   const skipBtn = document.getElementById('skipBtn');
   const newBtn = document.getElementById('newBtn');
   const modeSelect = document.getElementById('modeSelect');
   const modeEasyBtn = document.getElementById('modeEasy');
   const modeMediumBtn = document.getElementById('modeMedium');
+  const modeHardBtn = document.getElementById('modeHard');
 
   let state = { correctId: null, correctName: '', correctImg: null, currentRunScore: 0, attempts: 0, locked: false };
   // local cache to avoid repeated network requests and reduce API pressure
   state.cache = {};
-  // highscore persistent key
-  const HS_KEY = 'wtp_highscore';
-  const highscoreEl = document.getElementById('highscore');
+  // highscore persistent keys (separate for easy/medium/hard)
+  const HS_KEY_EASY = 'wtp_highscore_easy';
+  const HS_KEY_MED = 'wtp_highscore_medium';
+  const HS_KEY_HARD = 'wtp_highscore_hard';
+  const highscoreEasyEl = document.getElementById('highscore-easy');
+  const highscoreMedEl = document.getElementById('highscore-medium');
+  const highscoreHardEl = document.getElementById('highscore-hard');
   function updateHighscoreUI() {
-    const stored = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
-    if (highscoreEl) highscoreEl.textContent = stored;
+    const se = parseInt(localStorage.getItem(HS_KEY_EASY) || '0', 10) || 0;
+    const sm = parseInt(localStorage.getItem(HS_KEY_MED) || '0', 10) || 0;
+    const sh = parseInt(localStorage.getItem(HS_KEY_HARD) || '0', 10) || 0;
+    if (highscoreEasyEl) highscoreEasyEl.textContent = se;
+    if (highscoreMedEl) highscoreMedEl.textContent = sm;
+    if (highscoreHardEl) highscoreHardEl.textContent = sh;
   }
   updateHighscoreUI();
   if (scoreEl) scoreEl.textContent = String(state.currentRunScore);
@@ -90,13 +101,16 @@ document.addEventListener('DOMContentLoaded', () => {
     state.mode = mode;
     if (modeSelect) modeSelect.style.display = 'none';
     // show/hide input container
-    if (typeInputEl) typeInputEl.style.display = (mode === 'medium') ? 'flex' : 'none';
+    if (typeInputEl) typeInputEl.style.display = (mode === 'medium' || mode === 'hard') ? 'flex' : 'none';
+    // hide timer entirely for medium and hard
+    if (timerEl) timerEl.style.display = (mode === 'medium' || mode === 'hard') ? 'none' : '';
     // start first question
     newQuestion();
   }
 
   modeEasyBtn.addEventListener('click', () => startMode('easy'));
   modeMediumBtn.addEventListener('click', () => startMode('medium'));
+  modeHardBtn.addEventListener('click', () => startMode('hard'));
 
   function randId() { return Math.floor(Math.random() * (MAX_ID - MIN_ID + 1)) + MIN_ID; }
 
@@ -170,22 +184,54 @@ document.addEventListener('DOMContentLoaded', () => {
     drawPokeballBackground();
     const cw = canvas.width, ch = canvas.height;
     const iw = img.width, ih = img.height;
+    // center target area
     const scale = Math.min(cw / iw, ch / ih) * 0.9;
     const w = iw * scale, h = ih * scale;
     const x = (cw - w) / 2, y = (ch - h) / 2;
-    // draw image into offscreen canvas and convert to black silhouette
-    const off = document.createElement('canvas'); off.width = cw; off.height = ch;
-    const oc = off.getContext('2d');
-    oc.clearRect(0,0,cw,ch);
-    oc.drawImage(img, x, y, w, h);
-    oc.globalCompositeOperation = 'source-in';
-    oc.fillStyle = '#000';
-    oc.fillRect(0,0,cw,ch);
-    // now overlay the silhouette on top of the pokeball background
-    ctx.drawImage(off, 0, 0);
+    if (state.mode === 'hard') {
+      // create a small offscreen canvas to render the sprite at low res then upscale without smoothing
+      const smallW = Math.max(32, Math.floor(Math.min(iw, ih) * 0.5));
+      const smallH = Math.max(32, Math.floor(smallW * (ih/iw)));
+      const off = document.createElement('canvas'); off.width = smallW; off.height = smallH;
+      const oc = off.getContext('2d');
+      oc.clearRect(0,0,smallW,smallH);
+      // draw image scaled down into small canvas
+      oc.drawImage(img, 0, 0, iw, ih, 0, 0, smallW, smallH);
+      // convert to silhouette (black) in small canvas
+      oc.globalCompositeOperation = 'source-in';
+      oc.fillStyle = '#000';
+      oc.fillRect(0,0,smallW,smallH);
+      // upscale onto main canvas with pixelated look
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(off, 0, 0, smallW, smallH, x, y, w, h);
+      ctx.imageSmoothingEnabled = true;
+    } else {
+      // draw image into offscreen canvas and convert to black silhouette
+      const off = document.createElement('canvas'); off.width = cw; off.height = ch;
+      const oc = off.getContext('2d');
+      oc.clearRect(0,0,cw,ch);
+      oc.drawImage(img, x, y, w, h);
+      oc.globalCompositeOperation = 'source-in';
+      oc.fillStyle = '#000';
+      oc.fillRect(0,0,cw,ch);
+      // now overlay the silhouette on top of the pokeball background
+      ctx.drawImage(off, 0, 0);
+    }
   }
 
   function revealImage(img) { drawPokeballBackground(); drawCenteredImage(img); }
+
+  function revealImagePixelated(img) {
+    drawPokeballBackground();
+    const cw = canvas.width, ch = canvas.height;
+    const iw = img.width, ih = img.height;
+    const scale = Math.min(cw / iw, ch / ih) * 0.9;
+    const w = iw * scale, h = ih * scale;
+    const x = (cw - w) / 2, y = (ch - h) / 2;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, x, y, w, h);
+    ctx.imageSmoothingEnabled = true;
+  }
 
   function animatePokeballRelease(callback) {
     const cw = canvas.width, ch = canvas.height;
@@ -263,8 +309,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // use official artwork if available, otherwise front_default sprite
-    const imgUrl = (data.sprites && data.sprites.other && data.sprites.other['official-artwork'] && data.sprites.other['official-artwork'].front_default) || data.sprites.front_default;
+    // choose image url based on mode: hard prefers generation-iii (GBA) sprites when available
+    let imgUrl = null;
+    if (state.mode === 'hard') {
+      try {
+        imgUrl = ((data.sprites && data.sprites.versions && data.sprites.versions['generation-iii'] && (data.sprites.versions['generation-iii']['firered-leafgreen'] || data.sprites.versions['generation-iii']['ruby-sapphire'])) || {});
+        // attempt known gen3 keys
+        if (data.sprites && data.sprites.versions && data.sprites.versions['generation-iii']) {
+          const g3 = data.sprites.versions['generation-iii'];
+          imgUrl = (g3['firered-leafgreen'] && g3['firered-leafgreen'].front_default) || (g3['ruby-sapphire'] && g3['ruby-sapphire'].front_default) || null;
+        }
+      } catch (e) { imgUrl = null; }
+    }
+    if (!imgUrl) imgUrl = (data.sprites && data.sprites.other && data.sprites.other['official-artwork'] && data.sprites.other['official-artwork'].front_default) || data.sprites.front_default;
     if (!imgUrl) { feedbackEl.textContent = 'Image not available.'; state.locked = false; return; }
 
     const img = await loadImage(imgUrl).catch(() => null);
@@ -295,15 +352,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Draw silhouette
     drawSilhouetteFromImage(img);
 
-    // Show options (easy) or input (medium)
+    // Show options (easy) or input (medium/hard)
     optionsEl.innerHTML = '';
-    if (state.mode === 'medium') {
+    if (state.mode === 'medium' || state.mode === 'hard') {
       // create input and submit
       if (typeInputEl) typeInputEl.innerHTML = '';
       const input = document.createElement('input'); input.type = 'text'; input.placeholder = 'Type the Pokémon name...'; input.style.padding = '8px'; input.style.fontSize = '16px'; input.style.width = '260px';
       const submit = document.createElement('button'); submit.textContent = 'Submit'; submit.style.padding = '8px 12px';
-      const hint = document.createElement('div'); hint.style.width = '100%'; hint.style.fontSize = '12px'; hint.style.color = '#666'; hint.textContent = 'You have 20 seconds. You may also type "ditto".';
-      typeInputEl.appendChild(input); typeInputEl.appendChild(submit); typeInputEl.appendChild(hint);
+      typeInputEl.appendChild(input); typeInputEl.appendChild(submit);
       // handle submission
       function doSubmit() {
         if (state.locked) return;
@@ -312,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       submit.addEventListener('click', doSubmit);
       input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); doSubmit(); } });
-      // prepare
+      // prepare (timer runs but is hidden in medium mode)
       state.locked = false;
       startAnswerTimer(20000);
       // focus for ease
@@ -388,22 +444,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const go = document.getElementById('gameOver'); if (go) go.style.display = 'none';
   }
 
-  function updateHighscoreUI() {
-    const stored = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
-    if (highscoreEl) highscoreEl.textContent = stored;
-  }
+  // (no-op duplicate removed) the highscore UI is updated by the top-level updateHighscoreUI
 
   function gameOver(reason, elapsedMs) {
     // Reveal correct and stop interactions
     clearAnswerTimer();
     state.locked = true;
-    revealImage(state.correctImg);
+    if (state.mode === 'hard') revealImagePixelated(state.correctImg); else revealImage(state.correctImg);
     Array.from(optionsEl.children).forEach(b => b.disabled = true);
     const current = state.currentRunScore || 0;
     // update stored highscore
-    const prev = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
+    const key = (state.mode === 'hard') ? HS_KEY_HARD : (state.mode === 'medium') ? HS_KEY_MED : HS_KEY_EASY;
+    const prev = parseInt(localStorage.getItem(key) || '0', 10) || 0;
     const newHS = Math.max(prev, current);
-    try { localStorage.setItem(HS_KEY, String(newHS)); } catch (e) {}
+    try { localStorage.setItem(key, String(newHS)); } catch (e) {}
     updateHighscoreUI();
     const reasonText = reason === 'timeout' ? 'Time up' : (reason === 'wrong' ? 'Wrong' : 'Game over');
     const elapsedText = (elapsedMs != null) ? (' — ' + elapsedMs + ' ms') : '';
@@ -435,9 +489,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state.currentRunScore = (state.currentRunScore || 0) + 1;
       scoreEl.textContent = state.currentRunScore;
       // update persistent highscore if beaten
-      const prevHS = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
+      const key = (state.mode === 'hard') ? HS_KEY_HARD : (state.mode === 'medium') ? HS_KEY_MED : HS_KEY_EASY;
+      const prevHS = parseInt(localStorage.getItem(key) || '0', 10) || 0;
       if (state.currentRunScore > prevHS) {
-        try { localStorage.setItem(HS_KEY, String(state.currentRunScore)); } catch (e) {}
+        try { localStorage.setItem(key, String(state.currentRunScore)); } catch (e) {}
         updateHighscoreUI();
       }
       btn.classList.add('correct');
@@ -449,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (correct) {
       // animate pokeball opening then reveal
       animatePokeballRelease(() => {
-        revealImage(state.correctImg);
+        if (state.mode === 'hard') revealImagePixelated(state.correctImg); else revealImage(state.correctImg);
         Array.from(optionsEl.children).forEach(b => {
           if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct');
           b.disabled = true;
@@ -458,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     } else {
       // reveal immediately and end run
-      revealImage(state.correctImg);
+      if (state.mode === 'hard') revealImagePixelated(state.correctImg); else revealImage(state.correctImg);
       Array.from(optionsEl.children).forEach(b => { if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct'); b.disabled = true; });
       gameOver('wrong', elapsedMs);
     }
@@ -477,22 +532,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (accepted) {
       state.currentRunScore = (state.currentRunScore || 0) + 1;
       scoreEl.textContent = state.currentRunScore;
-      const prevHS = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
+      const key = (state.mode === 'hard') ? HS_KEY_HARD : HS_KEY_MED;
+      const prevHS = parseInt(localStorage.getItem(key) || '0', 10) || 0;
       if (state.currentRunScore > prevHS) {
-        try { localStorage.setItem(HS_KEY, String(state.currentRunScore)); } catch (e) {}
+        try { localStorage.setItem(key, String(state.currentRunScore)); } catch (e) {}
         updateHighscoreUI();
       }
       feedbackEl.textContent = 'Correct! ' + capitalize(state.correctName) + (elapsedMs != null ? ' — ' + elapsedMs + ' ms' : '');
       // animate and reveal
-      animatePokeballRelease(() => { revealImage(state.correctImg); setTimeout(() => { state.locked = false; newQuestion(); }, 900); });
+      animatePokeballRelease(() => { if (state.mode === 'hard') revealImagePixelated(state.correctImg); else revealImage(state.correctImg); setTimeout(() => { state.locked = false; newQuestion(); }, 900); });
     } else {
       feedbackEl.textContent = 'Wrong — it was ' + capitalize(state.correctName) + (elapsedMs != null ? ' — answered in ' + elapsedMs + ' ms' : '');
-      revealImage(state.correctImg);
+      if (state.mode === 'hard') revealImagePixelated(state.correctImg); else revealImage(state.correctImg);
       gameOver('wrong', elapsedMs);
     }
   }
 
-  skipBtn.addEventListener('click', () => { if (state.locked) return; clearAnswerTimer(); revealImage(state.correctImg); Array.from(optionsEl.children).forEach(b=>b.disabled=true); state.attempts = (state.attempts||0)+1; attemptsEl.textContent = state.attempts; setTimeout(() => newQuestion(), 900); });
+  skipBtn.addEventListener('click', () => { if (state.locked) return; clearAnswerTimer(); if (state.mode === 'hard') revealImagePixelated(state.correctImg); else revealImage(state.correctImg); Array.from(optionsEl.children).forEach(b=>b.disabled=true); state.attempts = (state.attempts||0)+1; attemptsEl.textContent = state.attempts; setTimeout(() => newQuestion(), 900); });
   newBtn.addEventListener('click', () => { if (state.locked) return; clearAnswerTimer(); newQuestion(); });
 
   // start first question
