@@ -43,6 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const newBtn = document.getElementById('newBtn');
 
   let state = { correctId: null, correctName: '', correctImg: null, score: 0, attempts: 0, locked: false };
+  // local cache to avoid repeated network requests and reduce API pressure
+  state.cache = {};
 
   function randId() { return Math.floor(Math.random() * (MAX_ID - MIN_ID + 1)) + MIN_ID; }
 
@@ -89,6 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function newQuestion() {
     if (state.locked) return;
+    // clear any previous answer timer
+    if (state.answerTimer) { clearTimeout(state.answerTimer); state.answerTimer = null; }
     state.locked = true;
     feedbackEl.textContent = '';
     optionsEl.innerHTML = '';
@@ -98,11 +102,28 @@ document.addEventListener('DOMContentLoaded', () => {
     do { correctId = randId(); } while (correctId === state.correctId);
     state.correctId = correctId;
 
-    // Fetch correct Pokemon data
-    let data;
-    try {
-      data = await fetchPokemon(correctId);
-    } catch (e) {
+    // Fetch correct Pokemon data with retry and cache
+    let data = null;
+    const maxAttempts = 6;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        data = await (async (id) => {
+          if (state.cache[id]) return state.cache[id];
+          const d = await fetchPokemon(id);
+          state.cache[id] = d;
+          return d;
+        })(correctId);
+        break;
+      } catch (e) {
+        // try a different id to avoid a stuck id or transient API failure
+        correctId = randId();
+        // ensure we don't repeat the immediate previous correctId
+        if (correctId === state.correctId) correctId = randId();
+        state.correctId = correctId;
+        data = null;
+      }
+    }
+    if (!data) {
       feedbackEl.textContent = 'Network error. Try again.';
       state.locked = false;
       return;
@@ -122,7 +143,16 @@ document.addEventListener('DOMContentLoaded', () => {
     while (ids.size < 4) ids.add(randId());
     const idArr = Array.from(ids);
     // fetch names for all ids (some already fetched)
-    const fetches = idArr.map(id => (id === correctId) ? Promise.resolve(data) : fetchPokemon(id).catch(() => ({ name: 'Unknown' })));
+    // fetch names for all ids (use cache when possible)
+    const fetches = idArr.map(id => (async () => {
+      if (id === correctId) return data;
+      if (state.cache[id]) return state.cache[id];
+      try {
+        const d = await fetchPokemon(id);
+        state.cache[id] = d;
+        return d;
+      } catch (e) { return { name: 'Unknown' }; }
+    })());
     const datas = await Promise.all(fetches);
     const names = datas.map(d => d.name);
     const paired = idArr.map((id, i) => ({ id, name: names[i] }));
@@ -140,13 +170,29 @@ document.addEventListener('DOMContentLoaded', () => {
       optionsEl.appendChild(btn);
     }
 
+    // allow answering and start a 2s timer
     state.locked = false;
+    if (state.answerTimer) { clearTimeout(state.answerTimer); }
+    state.answerTimer = setTimeout(() => {
+      // time expired — treat as wrong
+      if (state.locked) return; // already answered
+      state.locked = true;
+      state.attempts = (state.attempts || 0) + 1;
+      attemptsEl.textContent = state.attempts;
+      feedbackEl.textContent = 'Time up — it was ' + capitalize(state.correctName);
+      revealImage(state.correctImg);
+      Array.from(optionsEl.children).forEach(b => { b.disabled = true; if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct'); });
+      // schedule next
+      setTimeout(() => { state.locked = false; state.answerTimer = null; newQuestion(); }, 1400);
+    }, 2000);
   }
 
   function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
   async function onChoose(id, btn) {
     if (state.locked) return;
+    // answered — clear timer
+    if (state.answerTimer) { clearTimeout(state.answerTimer); state.answerTimer = null; }
     state.locked = true;
     const correct = Number(id) === Number(state.correctId);
     state.attempts = (state.attempts || 0) + 1;
@@ -173,8 +219,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { state.locked = false; newQuestion(); }, 1400);
   }
 
-  skipBtn.addEventListener('click', () => { if (state.locked) return; revealImage(state.correctImg); Array.from(optionsEl.children).forEach(b=>b.disabled=true); state.attempts = (state.attempts||0)+1; attemptsEl.textContent = state.attempts; setTimeout(() => newQuestion(), 900); });
-  newBtn.addEventListener('click', () => { if (state.locked) return; newQuestion(); });
+  skipBtn.addEventListener('click', () => { if (state.locked) return; if (state.answerTimer) { clearTimeout(state.answerTimer); state.answerTimer = null; } revealImage(state.correctImg); Array.from(optionsEl.children).forEach(b=>b.disabled=true); state.attempts = (state.attempts||0)+1; attemptsEl.textContent = state.attempts; setTimeout(() => newQuestion(), 900); });
+  newBtn.addEventListener('click', () => { if (state.locked) return; if (state.answerTimer) { clearTimeout(state.answerTimer); state.answerTimer = null; } newQuestion(); });
 
   // start first question
   newQuestion();
