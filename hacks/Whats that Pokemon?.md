@@ -12,7 +12,7 @@ toc: false
 <div style="max-width:760px; margin:12px auto; text-align:center;">
   <p>Guess the Pokémon from its silhouette. Choose one of the four options — the silhouette will be revealed after your guess.</p>
   <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom:8px;">
-    <div style="text-align:left;">Score: <span id="score">0</span> / <span id="attempts">0</span></div>
+    <div style="text-align:left;">Score: <span id="score">0</span> &nbsp; Highscore: <span id="highscore">0</span> / Attempts: <span id="attempts">0</span></div>
     <button id="skipBtn">Skip</button>
     <button id="newBtn">New</button>
   </div>
@@ -20,6 +20,9 @@ toc: false
   <div id="options" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
   <div id="feedback" style="height:28px; margin-top:10px; color:#111;"></div>
   <div id="timer" style="height:20px; margin-top:6px; color:#555; font-weight:600;"></div>
+  <div id="gameOver" style="display:none; position:fixed; left:0; right:0; top:0; bottom:0; background:rgba(0,0,0,0.7); color:#fff; align-items:center; justify-content:center; text-align:center; padding:20px; font-size:20px; z-index:9999;">
+    <div id="gameOverMsg"></div>
+  </div>
 </div>
 
 <style>
@@ -43,9 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const skipBtn = document.getElementById('skipBtn');
   const newBtn = document.getElementById('newBtn');
 
-  let state = { correctId: null, correctName: '', correctImg: null, score: 0, attempts: 0, locked: false };
+  let state = { correctId: null, correctName: '', correctImg: null, currentRunScore: 0, attempts: 0, locked: false };
   // local cache to avoid repeated network requests and reduce API pressure
   state.cache = {};
+  // highscore persistent key
+  const HS_KEY = 'wtp_highscore';
+  const highscoreEl = document.getElementById('highscore');
+  function updateHighscoreUI() {
+    const stored = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
+    if (highscoreEl) highscoreEl.textContent = stored;
+  }
+  updateHighscoreUI();
+  if (scoreEl) scoreEl.textContent = String(state.currentRunScore);
 
   function randId() { return Math.floor(Math.random() * (MAX_ID - MIN_ID + 1)) + MIN_ID; }
 
@@ -196,17 +208,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const tEl = document.getElementById('timer'); if (tEl) tEl.textContent = ms + ' ms';
     }, 16);
     const timeout = setTimeout(() => {
-      // time expired — treat as wrong
-      clearAnswerTimer();
+      // time expired — treat as wrong and end run
+      const elapsed = stopAnswerTimerKeepDisplay();
       if (state.locked) return; // already answered
-      state.locked = true;
       state.attempts = (state.attempts || 0) + 1;
       attemptsEl.textContent = state.attempts;
-      feedbackEl.textContent = 'Time up — it was ' + capitalize(state.correctName);
-      revealImage(state.correctImg);
-      Array.from(optionsEl.children).forEach(b => { b.disabled = true; if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct'); });
-      // schedule next
-      setTimeout(() => { state.locked = false; clearAnswerTimer(); newQuestion(); }, 1400);
+      gameOver('timeout', elapsed);
     }, durationMs);
     state.answerTimer = { timeout, interval, end, duration: durationMs };
   }
@@ -226,6 +233,49 @@ document.addEventListener('DOMContentLoaded', () => {
     return elapsed;
   }
 
+  function showGameOverOverlay(msg) {
+    const go = document.getElementById('gameOver');
+    const gm = document.getElementById('gameOverMsg');
+    if (!go || !gm) return;
+    gm.innerHTML = msg;
+    go.style.display = 'flex';
+  }
+
+  function hideGameOverOverlay() {
+    const go = document.getElementById('gameOver'); if (go) go.style.display = 'none';
+  }
+
+  function updateHighscoreUI() {
+    const stored = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
+    if (highscoreEl) highscoreEl.textContent = stored;
+  }
+
+  function gameOver(reason, elapsedMs) {
+    // Reveal correct and stop interactions
+    clearAnswerTimer();
+    state.locked = true;
+    revealImage(state.correctImg);
+    Array.from(optionsEl.children).forEach(b => b.disabled = true);
+    const current = state.currentRunScore || 0;
+    // update stored highscore
+    const prev = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
+    const newHS = Math.max(prev, current);
+    try { localStorage.setItem(HS_KEY, String(newHS)); } catch (e) {}
+    updateHighscoreUI();
+    const reasonText = reason === 'timeout' ? 'Time up' : (reason === 'wrong' ? 'Wrong' : 'Game over');
+    const elapsedText = (elapsedMs != null) ? (' — ' + elapsedMs + ' ms') : '';
+    const msg = `<div style="font-size:28px; font-weight:700; margin-bottom:8px;">Game Over</div><div>Score: ${current} — Highscore: ${newHS}</div><div style="margin-top:8px;">${reasonText}${elapsedText}</div>`;
+    showGameOverOverlay(msg);
+    // restart after 5s
+    setTimeout(() => {
+      hideGameOverOverlay();
+      state.currentRunScore = 0;
+      if (scoreEl) scoreEl.textContent = '0';
+      state.locked = false;
+      newQuestion();
+    }, 5000);
+  }
+
   async function onChoose(id, btn) {
     if (state.locked) return;
     // answered — stop timer but keep displayed elapsed ms
@@ -235,8 +285,14 @@ document.addEventListener('DOMContentLoaded', () => {
     state.attempts = (state.attempts || 0) + 1;
     attemptsEl.textContent = state.attempts;
     if (correct) {
-      state.score = (state.score || 0) + 1;
-      scoreEl.textContent = state.score;
+      state.currentRunScore = (state.currentRunScore || 0) + 1;
+      scoreEl.textContent = state.currentRunScore;
+      // update persistent highscore if beaten
+      const prevHS = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
+      if (state.currentRunScore > prevHS) {
+        try { localStorage.setItem(HS_KEY, String(state.currentRunScore)); } catch (e) {}
+        updateHighscoreUI();
+      }
       btn.classList.add('correct');
       feedbackEl.textContent = 'Correct! ' + capitalize(state.correctName) + (elapsedMs != null ? ' — ' + elapsedMs + ' ms' : '');
     } else {
@@ -252,8 +308,13 @@ document.addEventListener('DOMContentLoaded', () => {
       b.disabled = true;
     });
 
-    // auto-next after short delay
-    setTimeout(() => { state.locked = false; newQuestion(); }, 1400);
+    // continue or end run
+    if (correct) {
+      setTimeout(() => { state.locked = false; newQuestion(); }, 900);
+    } else {
+      // wrong answer — trigger game over (will show overlay and restart after 5s)
+      gameOver('wrong', elapsedMs);
+    }
   }
 
   skipBtn.addEventListener('click', () => { if (state.locked) return; clearAnswerTimer(); revealImage(state.correctImg); Array.from(optionsEl.children).forEach(b=>b.disabled=true); state.attempts = (state.attempts||0)+1; attemptsEl.textContent = state.attempts; setTimeout(() => newQuestion(), 900); });
