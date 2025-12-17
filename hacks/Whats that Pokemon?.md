@@ -1,5 +1,5 @@
 ---
-layout: post
+layout: opencs
 title: "Who's That Pokémon? (Kanto — 151)"
 description: A small guessing game showing a silhouette of a Kanto Pokémon and four choices.
 permalink: /whos-that-pokemon
@@ -19,6 +19,7 @@ toc: false
   <canvas id="pokeCanvas" width="480" height="360" style="border:1px solid #ccc; background:#fff; display:block; margin:0 auto 12px;"></canvas>
   <div id="options" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
   <div id="feedback" style="height:28px; margin-top:10px; color:#111;"></div>
+  <div id="timer" style="height:20px; margin-top:6px; color:#555; font-weight:600;"></div>
 </div>
 
 <style>
@@ -171,10 +172,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // allow answering and start a 2s timer
-    state.locked = false;
-    if (state.answerTimer) { clearTimeout(state.answerTimer); }
-    state.answerTimer = setTimeout(() => {
+      state.locked = false;
+      startAnswerTimer(2000);
+  }
+
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function clearAnswerTimer() {
+    if (state.answerTimer) {
+      try { if (state.answerTimer.timeout) clearTimeout(state.answerTimer.timeout); } catch (e) {}
+      try { if (state.answerTimer.interval) clearInterval(state.answerTimer.interval); } catch (e) {}
+      state.answerTimer = null;
+    }
+    const tEl = document.getElementById('timer'); if (tEl) tEl.textContent = '';
+  }
+
+  function startAnswerTimer(durationMs) {
+    clearAnswerTimer();
+    const end = performance.now() + durationMs;
+    const interval = setInterval(() => {
+      const rem = Math.max(0, end - performance.now());
+      const ms = Math.ceil(rem);
+      const tEl = document.getElementById('timer'); if (tEl) tEl.textContent = ms + ' ms';
+    }, 16);
+    const timeout = setTimeout(() => {
       // time expired — treat as wrong
+      clearAnswerTimer();
       if (state.locked) return; // already answered
       state.locked = true;
       state.attempts = (state.attempts || 0) + 1;
@@ -183,16 +206,30 @@ document.addEventListener('DOMContentLoaded', () => {
       revealImage(state.correctImg);
       Array.from(optionsEl.children).forEach(b => { b.disabled = true; if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct'); });
       // schedule next
-      setTimeout(() => { state.locked = false; state.answerTimer = null; newQuestion(); }, 1400);
-    }, 2000);
+      setTimeout(() => { state.locked = false; clearAnswerTimer(); newQuestion(); }, 1400);
+    }, durationMs);
+    state.answerTimer = { timeout, interval, end, duration: durationMs };
   }
 
-  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  // Stop the timer but keep the final elapsed ms visible (returns elapsed ms)
+  function stopAnswerTimerKeepDisplay() {
+    if (!state.answerTimer) return null;
+    const now = performance.now();
+    const end = state.answerTimer.end || now;
+    const duration = state.answerTimer.duration || 0;
+    const remaining = Math.max(0, end - now);
+    const elapsed = Math.max(0, Math.round(duration - remaining));
+    try { if (state.answerTimer.interval) clearInterval(state.answerTimer.interval); } catch (e) {}
+    try { if (state.answerTimer.timeout) clearTimeout(state.answerTimer.timeout); } catch (e) {}
+    state.answerTimer = null;
+    const tEl = document.getElementById('timer'); if (tEl) tEl.textContent = elapsed + ' ms';
+    return elapsed;
+  }
 
   async function onChoose(id, btn) {
     if (state.locked) return;
-    // answered — clear timer
-    if (state.answerTimer) { clearTimeout(state.answerTimer); state.answerTimer = null; }
+    // answered — stop timer but keep displayed elapsed ms
+    const elapsedMs = stopAnswerTimerKeepDisplay();
     state.locked = true;
     const correct = Number(id) === Number(state.correctId);
     state.attempts = (state.attempts || 0) + 1;
@@ -201,10 +238,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state.score = (state.score || 0) + 1;
       scoreEl.textContent = state.score;
       btn.classList.add('correct');
-      feedbackEl.textContent = 'Correct! ' + capitalize(state.correctName);
+      feedbackEl.textContent = 'Correct! ' + capitalize(state.correctName) + (elapsedMs != null ? ' — ' + elapsedMs + ' ms' : '');
     } else {
       btn.classList.add('wrong');
-      feedbackEl.textContent = 'Wrong — it was ' + capitalize(state.correctName);
+      feedbackEl.textContent = 'Wrong — it was ' + capitalize(state.correctName) + (elapsedMs != null ? ' — answered in ' + elapsedMs + ' ms' : '');
     }
     // reveal colored image
     revealImage(state.correctImg);
@@ -219,8 +256,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { state.locked = false; newQuestion(); }, 1400);
   }
 
-  skipBtn.addEventListener('click', () => { if (state.locked) return; if (state.answerTimer) { clearTimeout(state.answerTimer); state.answerTimer = null; } revealImage(state.correctImg); Array.from(optionsEl.children).forEach(b=>b.disabled=true); state.attempts = (state.attempts||0)+1; attemptsEl.textContent = state.attempts; setTimeout(() => newQuestion(), 900); });
-  newBtn.addEventListener('click', () => { if (state.locked) return; if (state.answerTimer) { clearTimeout(state.answerTimer); state.answerTimer = null; } newQuestion(); });
+  skipBtn.addEventListener('click', () => { if (state.locked) return; clearAnswerTimer(); revealImage(state.correctImg); Array.from(optionsEl.children).forEach(b=>b.disabled=true); state.attempts = (state.attempts||0)+1; attemptsEl.textContent = state.attempts; setTimeout(() => newQuestion(), 900); });
+  newBtn.addEventListener('click', () => { if (state.locked) return; clearAnswerTimer(); newQuestion(); });
 
   // start first question
   newQuestion();
