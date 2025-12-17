@@ -7,7 +7,13 @@ show_reading_time: false
 
 
 
-Hi! My name is [Your Full Name]
+Hi! We are the Goat Group
+
+Scrum Master: Rishab
+
+Assistant Scrum Master: Aashi
+
+Scrums: Joshika, Adam, Ayden, Kashyap
 
 ### Development Environment
 
@@ -40,9 +46,9 @@ Hi! My name is [Your Full Name]
             Snake Game
         </div>
     </a>
-    <a href="{{site.baseurl}}/turtle" style="text-decoration: none;">
+    <a href="{{site.baseurl}}/custompong" style="text-decoration: none;">
         <div style="background-color: #FF0000; color: white; padding: 10px 20px; border-radius: 5px; font-weight: bold;">
-            Turtle
+            Pong 
         </div>
     </a>
     <a href="{{site.baseurl}}/javascript/project/blackjack" style="text-decoration: none;">

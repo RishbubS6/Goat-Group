@@ -38,6 +38,9 @@ HTML implementation of the calculator.
   
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.6em;
+    text-align: right;
   }
   canvas {
     filter: none;
@@ -70,6 +73,15 @@ HTML implementation of the calculator.
       <div class="calculator-number">.</div>
       <div class="calculator-equals">=</div>
   </div>
+</div>
+
+<!-- extra operations: modulus and unary ops: sqrt, square, cube, factorial -->
+<div style="text-align:center; margin-top:10px; display:flex; gap:8px; justify-content:center;">
+  <button id="modBtn" class="calculator-operation">%</button>
+  <button id="sqrtBtn" class="calculator-unary">√</button>
+  <button id="squareBtn" class="calculator-unary">x²</button>
+  <button id="cubeBtn" class="calculator-unary">x³</button>
+  <button id="factBtn" class="calculator-unary">!</button>
 </div>
 
 <!-- JavaScript (JS) implementation of the calculator. -->
@@ -111,48 +123,107 @@ function number (value) { // function to input numbers into the calculator
     }
 }
 
-// Operation buttons listener
+// Operation buttons listener (binary ops)
 operations.forEach(button => {
   button.addEventListener("click", function() {
     operation(button.textContent);
   });
 });
 
+// Modulus button (added)
+const modBtn = document.getElementById('modBtn');
+if (modBtn) modBtn.addEventListener('click', () => operation('%'));
+
+// Unary sqrt
+const sqrtBtn = document.getElementById('sqrtBtn');
+if (sqrtBtn) sqrtBtn.addEventListener('click', () => {
+  // apply sqrt to current displayed value
+  const cur = parseFloat(output.innerHTML);
+  if (!Number.isFinite(cur) || cur < 0) {
+    output.innerHTML = 'Error';
+    nextReady = true;
+    return;
+  }
+  const res = Math.sqrt(cur);
+  output.innerHTML = formatNumber(res);
+  nextReady = true;
+});
+
+// Square, Cube, Factorial handlers
+const squareBtn = document.getElementById('squareBtn');
+if (squareBtn) squareBtn.addEventListener('click', () => {
+  const cur = parseFloat(output.innerHTML);
+  if (!Number.isFinite(cur)) { output.innerHTML = 'Error'; nextReady = true; return; }
+  const res = cur * cur;
+  output.innerHTML = formatNumber(res);
+  nextReady = true;
+});
+
+const cubeBtn = document.getElementById('cubeBtn');
+if (cubeBtn) cubeBtn.addEventListener('click', () => {
+  const cur = parseFloat(output.innerHTML);
+  if (!Number.isFinite(cur)) { output.innerHTML = 'Error'; nextReady = true; return; }
+  const res = cur * cur * cur;
+  output.innerHTML = formatNumber(res);
+  nextReady = true;
+});
+
+const factBtn = document.getElementById('factBtn');
+if (factBtn) factBtn.addEventListener('click', () => {
+  const cur = parseFloat(output.innerHTML);
+  // factorial only for non-negative integers and reasonably small
+  if (!Number.isFinite(cur) || cur < 0 || Math.floor(cur) !== cur) { output.innerHTML = 'Error'; nextReady = true; return; }
+  const n = Math.floor(cur);
+  if (n > 20) { output.innerHTML = 'Error'; nextReady = true; return; }
+  let f = 1;
+  for (let i = 2; i <= n; i++) f *= i;
+  output.innerHTML = formatNumber(f);
+  nextReady = true;
+});
+
 // Operator action
 function operation (choice) { // function to input operations into the calculator
-    if (firstNumber == null) { // once the operation is chosen, the displayed number is stored into the variable firstNumber
-        firstNumber = parseInt(output.innerHTML);
-        nextReady = true;
-        operator = choice;
-        return; // exits function
-    }
-    // occurs if there is already a number stored in the calculator
-    firstNumber = calculate(firstNumber, parseFloat(output.innerHTML)); 
-    operator = choice;
-    output.innerHTML = firstNumber.toString();
+  if (firstNumber == null) { // once the operation is chosen, the displayed number is stored into the variable firstNumber
+    firstNumber = parseFloat(output.innerHTML);
     nextReady = true;
+    operator = choice;
+    return; // exits function
+  }
+  // occurs if there is already a number stored in the calculator
+  firstNumber = calculate(firstNumber, parseFloat(output.innerHTML)); 
+  operator = choice;
+  output.innerHTML = formatNumber(firstNumber);
+  nextReady = true;
 }
 
 // Calculator
 function calculate (first, second) { // function to calculate the result of the equation
-    let result = 0;
-    switch (operator) {
-        case "+":
-            result = first + second;
-            break;
-        case "-":
-            result = first - second;
-            break;
-        case "*":
-            result = first * second;
-            break;
-        case "/":
-            result = first / second;
-            break;
-        default: 
-            break;
-    }
-    return result;
+  let result = 0;
+  switch (operator) {
+    case "+":
+      result = first + second;
+      break;
+    case "-":
+      result = first - second;
+      break;
+    case "*":
+      result = first * second;
+      break;
+    case "/":
+      // handle divide by zero
+      if (second === 0) return NaN;
+      result = first / second;
+      break;
+    case "%":
+      // modulus
+      if (second === 0) return NaN;
+      result = first % second;
+      break;
+    default: 
+      result = second;
+      break;
+  }
+  return result;
 }
 
 // Equals button listener
@@ -164,9 +235,9 @@ equals.forEach(button => {
 
 // Equal action
 function equal () { // function used when the equals button is clicked; calculates equation and displays it
-    firstNumber = calculate(firstNumber, parseFloat(output.innerHTML));
-    output.innerHTML = firstNumber.toString();
-    nextReady = true;
+  firstNumber = calculate(firstNumber, parseFloat(output.innerHTML));
+  output.innerHTML = formatNumber(firstNumber);
+  nextReady = true;
 }
 
 // Clear button listener
@@ -181,6 +252,19 @@ function clearCalc () { // clears calculator
     firstNumber = null;
     output.innerHTML = "0";
     nextReady = true;
+}
+
+// format number for display: handle large/small magnitudes and trim trailing zeros
+function formatNumber(n) {
+  if (!Number.isFinite(n)) return 'Error';
+  // limit precision
+  const abs = Math.abs(n);
+  if ((abs !== 0 && abs < 1e-6) || abs >= 1e12) {
+    return n.toExponential(6);
+  }
+  // show up to 10 decimal places, trim trailing zeros
+  let s = (+n.toFixed(10)).toString();
+  return s;
 }
 </script>
 
