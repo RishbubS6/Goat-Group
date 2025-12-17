@@ -16,7 +16,7 @@ toc: false
     <button id="skipBtn">Skip</button>
     <button id="newBtn">New</button>
   </div>
-  <canvas id="pokeCanvas" width="480" height="360" style="border:1px solid #ccc; background:#fff; display:block; margin:0 auto 12px;"></canvas>
+  <canvas id="pokeCanvas" width="480" height="360" style="border:1px solid #ccc; background:transparent; display:block; margin:0 auto 12px;"></canvas>
   <div id="options" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
   <div id="feedback" style="height:28px; margin-top:10px; color:#111;"></div>
   <div id="timer" style="height:20px; margin-top:6px; color:#555; font-weight:600;"></div>
@@ -71,8 +71,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function clearCanvas() { ctx.clearRect(0,0,canvas.width,canvas.height); }
 
+  // draw pokeball components with optional top-lift and glow
+  function drawPokeballBackgroundWithParams(topDy = 0, glow = 0) {
+    const cw = canvas.width, ch = canvas.height;
+    const cx = cw / 2, cy = ch / 2;
+    const r = Math.min(cw, ch) * 0.45;
+    // clear
+    ctx.clearRect(0,0,cw,ch);
+    // glow (radial)
+    if (glow > 0) {
+      const g = ctx.createRadialGradient(cx, cy, r*0.2, cx, cy, r*1.2);
+      g.addColorStop(0, `rgba(255,50,50,${Math.min(0.6, glow*0.6)})`);
+      g.addColorStop(0.6, `rgba(255,50,50,${Math.min(0.18, glow*0.18)})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,cw,ch);
+    }
+    // top red semicircle (liftable)
+    const topCenterY = cy + topDy;
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy);
+    ctx.arc(cx, topCenterY, r, Math.PI, 0, false);
+    ctx.closePath();
+    ctx.fillStyle = '#d62828';
+    ctx.fill();
+    // bottom white semicircle
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy);
+    ctx.arc(cx, cy, r, Math.PI, 0, true);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    // black horizontal band
+    const bandH = Math.max(8, r * 0.18);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(cx - r, cy - bandH/2, r*2, bandH);
+    // center button (white circle with black outline and inner small circle)
+    const btnR = Math.max(10, r * 0.18);
+    ctx.beginPath(); ctx.arc(cx, cy, btnR, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.lineWidth = Math.max(4, r * 0.04); ctx.strokeStyle = '#111'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, btnR * 0.45, 0, Math.PI*2); ctx.fillStyle = '#ddd'; ctx.fill();
+  }
+
+  function drawPokeballBackground() { drawPokeballBackgroundWithParams(0,0); }
+
+
   function drawCenteredImage(img) {
-    clearCanvas();
     const cw = canvas.width, ch = canvas.height;
     const iw = img.width, ih = img.height;
     const scale = Math.min(cw / iw, ch / ih) * 0.9;
@@ -83,15 +127,53 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function drawSilhouetteFromImage(img) {
-    const pos = drawCenteredImage(img);
-    // create silhouette: fill with black only where image exists
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.globalCompositeOperation = 'source-over';
+    // draw pokeball background first
+    drawPokeballBackground();
+    const cw = canvas.width, ch = canvas.height;
+    const iw = img.width, ih = img.height;
+    const scale = Math.min(cw / iw, ch / ih) * 0.9;
+    const w = iw * scale, h = ih * scale;
+    const x = (cw - w) / 2, y = (ch - h) / 2;
+    // draw image into offscreen canvas and convert to black silhouette
+    const off = document.createElement('canvas'); off.width = cw; off.height = ch;
+    const oc = off.getContext('2d');
+    oc.clearRect(0,0,cw,ch);
+    oc.drawImage(img, x, y, w, h);
+    oc.globalCompositeOperation = 'source-in';
+    oc.fillStyle = '#000';
+    oc.fillRect(0,0,cw,ch);
+    // now overlay the silhouette on top of the pokeball background
+    ctx.drawImage(off, 0, 0);
   }
 
-  function revealImage(img) { clearCanvas(); drawCenteredImage(img); }
+  function revealImage(img) { drawPokeballBackground(); drawCenteredImage(img); }
+
+  function animatePokeballRelease(callback) {
+    const cw = canvas.width, ch = canvas.height;
+    const cx = cw / 2, cy = ch / 2;
+    const r = Math.min(cw, ch) * 0.45;
+    const duration = 800;
+    const start = performance.now();
+    function easeInOut(t) { return t<0.5 ? 2*t*t : -1 + (4-2*t)*t; }
+    function frame(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const e = easeInOut(t);
+      const topDy = -r * 0.6 * e;
+      const glow = e;
+      drawPokeballBackgroundWithParams(topDy, glow);
+      if (t < 1) requestAnimationFrame(frame);
+      else {
+        // final flash then callback
+        const grad = ctx.createRadialGradient(cx, cy, r*0.1, cx, cy, r*1.6);
+        grad.addColorStop(0, 'rgba(255,80,80,0.9)');
+        grad.addColorStop(0.6, 'rgba(255,80,80,0.18)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad; ctx.fillRect(0,0,cw,ch);
+        if (callback) setTimeout(callback, 120);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
 
   async function loadImage(url) {
     return new Promise((resolve, reject) => {
@@ -299,20 +381,20 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('wrong');
       feedbackEl.textContent = 'Wrong — it was ' + capitalize(state.correctName) + (elapsedMs != null ? ' — answered in ' + elapsedMs + ' ms' : '');
     }
-    // reveal colored image
-    revealImage(state.correctImg);
-
-    // highlight the correct option
-    Array.from(optionsEl.children).forEach(b => {
-      if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct');
-      b.disabled = true;
-    });
-
-    // continue or end run
     if (correct) {
-      setTimeout(() => { state.locked = false; newQuestion(); }, 900);
+      // animate pokeball opening then reveal
+      animatePokeballRelease(() => {
+        revealImage(state.correctImg);
+        Array.from(optionsEl.children).forEach(b => {
+          if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct');
+          b.disabled = true;
+        });
+        setTimeout(() => { state.locked = false; newQuestion(); }, 900);
+      });
     } else {
-      // wrong answer — trigger game over (will show overlay and restart after 5s)
+      // reveal immediately and end run
+      revealImage(state.correctImg);
+      Array.from(optionsEl.children).forEach(b => { if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct'); b.disabled = true; });
       gameOver('wrong', elapsedMs);
     }
   }
