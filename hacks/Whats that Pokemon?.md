@@ -10,7 +10,11 @@ toc: false
 ## Who's That Pokémon? — Kanto (Original 151)
 
 <div style="max-width:760px; margin:12px auto; text-align:center;">
-  <p>Guess the Pokémon from its silhouette. Choose one of the four options — the silhouette will be revealed after your guess.</p>
+  <p>Guess the Pokémon from its silhouette. Choose one of the two game modes to start.</p>
+  <div id="modeSelect" style="position:relative; margin:10px auto 18px; display:flex; gap:12px; justify-content:center;">
+    <button id="modeEasy">Easy (4-choice)</button>
+    <button id="modeMedium">Medium (type answer)</button>
+  </div>
   <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom:8px;">
     <div style="text-align:left;">Score: <span id="score">0</span> &nbsp; Highscore: <span id="highscore">0</span> / Attempts: <span id="attempts">0</span></div>
     <button id="skipBtn">Skip</button>
@@ -18,6 +22,7 @@ toc: false
   </div>
   <canvas id="pokeCanvas" width="480" height="360" style="border:1px solid #ccc; background:transparent; display:block; margin:0 auto 12px;"></canvas>
   <div id="options" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
+  <div id="typeInput" style="display:none; gap:8px; justify-content:center; margin-top:8px;"></div>
   <div id="feedback" style="height:28px; margin-top:10px; color:#111;"></div>
   <div id="timer" style="height:20px; margin-top:6px; color:#555; font-weight:600;"></div>
   <div id="gameOver" style="display:none; position:fixed; left:0; right:0; top:0; bottom:0; background:rgba(0,0,0,0.7); color:#fff; align-items:center; justify-content:center; text-align:center; padding:20px; font-size:20px; z-index:9999;">
@@ -43,8 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const scoreEl = document.getElementById('score');
   const attemptsEl = document.getElementById('attempts');
   const feedbackEl = document.getElementById('feedback');
+  const typeInputEl = document.getElementById('typeInput');
   const skipBtn = document.getElementById('skipBtn');
   const newBtn = document.getElementById('newBtn');
+  const modeSelect = document.getElementById('modeSelect');
+  const modeEasyBtn = document.getElementById('modeEasy');
+  const modeMediumBtn = document.getElementById('modeMedium');
 
   let state = { correctId: null, correctName: '', correctImg: null, currentRunScore: 0, attempts: 0, locked: false };
   // local cache to avoid repeated network requests and reduce API pressure
@@ -58,6 +67,36 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   updateHighscoreUI();
   if (scoreEl) scoreEl.textContent = String(state.currentRunScore);
+  // mode will be 'easy' or 'medium'
+  state.mode = null;
+
+  // normalize input: remove diacritics, punctuation, and lowercase
+  function normalizeAnswer(s) {
+    if (!s) return '';
+    // NFD normalize and remove diacritics
+    try {
+      s = s.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    } catch (e) {
+      // fallback for environments without \p{Diacritic}
+      s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    // keep letters and digits only
+    s = s.replace(/[^a-zA-Z0-9 ]+/g, '');
+    s = s.trim().toLowerCase();
+    return s;
+  }
+
+  function startMode(mode) {
+    state.mode = mode;
+    if (modeSelect) modeSelect.style.display = 'none';
+    // show/hide input container
+    if (typeInputEl) typeInputEl.style.display = (mode === 'medium') ? 'flex' : 'none';
+    // start first question
+    newQuestion();
+  }
+
+  modeEasyBtn.addEventListener('click', () => startMode('easy'));
+  modeMediumBtn.addEventListener('click', () => startMode('medium'));
 
   function randId() { return Math.floor(Math.random() * (MAX_ID - MIN_ID + 1)) + MIN_ID; }
 
@@ -256,18 +295,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // Draw silhouette
     drawSilhouetteFromImage(img);
 
-    // Show options
-    for (const p of paired) {
-      const btn = document.createElement('button');
-      btn.textContent = capitalize(p.name.replace(/-/g,' '));
-      btn.dataset.id = p.id;
-      btn.addEventListener('click', () => onChoose(p.id, btn));
-      optionsEl.appendChild(btn);
-    }
-
-    // allow answering and start a 2s timer
+    // Show options (easy) or input (medium)
+    optionsEl.innerHTML = '';
+    if (state.mode === 'medium') {
+      // create input and submit
+      if (typeInputEl) typeInputEl.innerHTML = '';
+      const input = document.createElement('input'); input.type = 'text'; input.placeholder = 'Type the Pokémon name...'; input.style.padding = '8px'; input.style.fontSize = '16px'; input.style.width = '260px';
+      const submit = document.createElement('button'); submit.textContent = 'Submit'; submit.style.padding = '8px 12px';
+      const hint = document.createElement('div'); hint.style.width = '100%'; hint.style.fontSize = '12px'; hint.style.color = '#666'; hint.textContent = 'You have 20 seconds. You may also type "ditto".';
+      typeInputEl.appendChild(input); typeInputEl.appendChild(submit); typeInputEl.appendChild(hint);
+      // handle submission
+      function doSubmit() {
+        if (state.locked) return;
+        const val = input.value || '';
+        onTypeSubmit(val);
+      }
+      submit.addEventListener('click', doSubmit);
+      input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); doSubmit(); } });
+      // prepare
+      state.locked = false;
+      startAnswerTimer(20000);
+      // focus for ease
+      setTimeout(() => input.focus(), 80);
+    } else {
+      for (const p of paired) {
+        const btn = document.createElement('button');
+        btn.textContent = capitalize(p.name.replace(/-/g,' '));
+        btn.dataset.id = p.id;
+        btn.addEventListener('click', () => onChoose(p.id, btn));
+        optionsEl.appendChild(btn);
+      }
+      // allow answering and start a 2s timer
       state.locked = false;
       startAnswerTimer(2000);
+    }
   }
 
   function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -354,6 +415,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state.currentRunScore = 0;
       if (scoreEl) scoreEl.textContent = '0';
       state.locked = false;
+      // if mode not selected, show mode select again
+      if (!state.mode) {
+        if (modeSelect) modeSelect.style.display = 'flex';
+      }
       newQuestion();
     }, 5000);
   }
@@ -395,6 +460,34 @@ document.addEventListener('DOMContentLoaded', () => {
       // reveal immediately and end run
       revealImage(state.correctImg);
       Array.from(optionsEl.children).forEach(b => { if (Number(b.dataset.id) === Number(state.correctId)) b.classList.add('correct'); b.disabled = true; });
+      gameOver('wrong', elapsedMs);
+    }
+  }
+
+  // handle typed submission for medium mode
+  function onTypeSubmit(text) {
+    if (state.locked) return;
+    const elapsedMs = stopAnswerTimerKeepDisplay();
+    state.locked = true;
+    state.attempts = (state.attempts || 0) + 1;
+    attemptsEl.textContent = state.attempts;
+    const norm = normalizeAnswer(text);
+    const correctNorm = normalizeAnswer(state.correctName.replace(/-/g,' '));
+    const accepted = (norm === correctNorm) || (norm === 'ditto');
+    if (accepted) {
+      state.currentRunScore = (state.currentRunScore || 0) + 1;
+      scoreEl.textContent = state.currentRunScore;
+      const prevHS = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
+      if (state.currentRunScore > prevHS) {
+        try { localStorage.setItem(HS_KEY, String(state.currentRunScore)); } catch (e) {}
+        updateHighscoreUI();
+      }
+      feedbackEl.textContent = 'Correct! ' + capitalize(state.correctName) + (elapsedMs != null ? ' — ' + elapsedMs + ' ms' : '');
+      // animate and reveal
+      animatePokeballRelease(() => { revealImage(state.correctImg); setTimeout(() => { state.locked = false; newQuestion(); }, 900); });
+    } else {
+      feedbackEl.textContent = 'Wrong — it was ' + capitalize(state.correctName) + (elapsedMs != null ? ' — answered in ' + elapsedMs + ' ms' : '');
+      revealImage(state.correctImg);
       gameOver('wrong', elapsedMs);
     }
   }
