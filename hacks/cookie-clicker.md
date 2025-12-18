@@ -59,8 +59,20 @@ permalink: /Cookie-Clicker/
             </div>
         </div>
 
-        <button id="cookie-button" class="w-48 h-48 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full cursor-pointer shadow-2xl hover:scale-105 active:scale-95 transition-transform duration-200 ease-out flex items-center justify-center border-4 border-amber-600 text-8xl">
-            🍪
+        <button id="cookie-button" class="w-64 h-64 rounded-full cursor-pointer shadow-2xl hover:scale-105 active:scale-95 transition-transform duration-200 ease-out flex items-center justify-center relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-full"></div>
+            <div class="absolute inset-2 bg-gradient-to-br from-yellow-700 via-amber-500 to-yellow-600 rounded-full"></div>
+            <div class="absolute inset-0 opacity-30">
+                <div class="absolute w-8 h-8 bg-amber-800 rounded-full" style="top: 20%; left: 25%;"></div>
+                <div class="absolute w-6 h-6 bg-amber-900 rounded-full" style="top: 35%; left: 65%;"></div>
+                <div class="absolute w-7 h-7 bg-yellow-900 rounded-full" style="top: 60%; left: 30%;"></div>
+                <div class="absolute w-5 h-5 bg-amber-800 rounded-full" style="top: 70%; left: 70%;"></div>
+                <div class="absolute w-6 h-6 bg-yellow-800 rounded-full" style="top: 45%; left: 50%;"></div>
+                <div class="absolute w-4 h-4 bg-amber-900 rounded-full" style="top: 25%; left: 75%;"></div>
+                <div class="absolute w-5 h-5 bg-yellow-900 rounded-full" style="top: 80%; left: 45%;"></div>
+                <div class="absolute w-6 h-6 bg-amber-800 rounded-full" style="top: 15%; left: 50%;"></div>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white opacity-20 rounded-full"></div>
         </button>
 
         <div class="text-center bg-yellow-200/70 px-6 py-3 rounded-lg shadow border border-yellow-400">
@@ -82,11 +94,22 @@ permalink: /Cookie-Clicker/
         temple: { count: 0, baseCost: 500000, cps: 260 },
         ohio: { count: 0, baseCost: 2000000, cps: 1400 }
     };
+    
+    var lastUpdateTime = Date.now();
+
+    function getTotalCps() {
+        var total = 0;
+        for (var key in upgrades) {
+            total += upgrades[key].count * upgrades[key].cps;
+        }
+        return total;
+    }
 
     function loadGame() {
         try {
             var savedCookies = localStorage.getItem('cookie_clicker_cookies');
             var savedUpgrades = localStorage.getItem('cookie_clicker_upgrades');
+            var savedTimestamp = localStorage.getItem('cookie_clicker_timestamp');
             
             if (savedCookies) {
                 cookies = parseFloat(savedCookies);
@@ -100,6 +123,28 @@ permalink: /Cookie-Clicker/
                     }
                 }
             }
+
+            // Calculate offline progress
+            if (savedTimestamp) {
+                var lastTime = parseInt(savedTimestamp);
+                var currentTime = Date.now();
+                var secondsElapsed = (currentTime - lastTime) / 1000;
+                
+                // Cap offline time at 24 hours to prevent abuse
+                if (secondsElapsed > 86400) {
+                    secondsElapsed = 86400;
+                }
+                
+                var totalCps = getTotalCps();
+                var offlineEarnings = totalCps * secondsElapsed;
+                
+                if (offlineEarnings > 0) {
+                    cookies += offlineEarnings;
+                    alert('Welcome back! You earned ' + Math.floor(offlineEarnings) + ' cookies while you were away (' + Math.floor(secondsElapsed / 60) + ' minutes)');
+                }
+            }
+            
+            lastUpdateTime = Date.now();
         } catch (error) {
             console.log('No saved game found');
         }
@@ -109,6 +154,7 @@ permalink: /Cookie-Clicker/
     function saveGame() {
         try {
             localStorage.setItem('cookie_clicker_cookies', cookies.toString());
+            localStorage.setItem('cookie_clicker_timestamp', Date.now().toString());
             var upgradeData = {};
             for (var key in upgrades) {
                 upgradeData[key] = { count: upgrades[key].count };
@@ -121,14 +167,6 @@ permalink: /Cookie-Clicker/
 
     function getCurrentCost(upgrade) {
         return Math.floor(upgrade.baseCost * Math.pow(1.15, upgrade.count));
-    }
-
-    function getTotalCps() {
-        var total = 0;
-        for (var key in upgrades) {
-            total += upgrades[key].count * upgrades[key].cps;
-        }
-        return total;
     }
 
     function updateDisplay() {
@@ -179,9 +217,13 @@ permalink: /Cookie-Clicker/
     document.getElementById('btn-ohio').addEventListener('click', function() { buyUpgrade('ohio'); });
 
     setInterval(function() {
+        var currentTime = Date.now();
+        var deltaTime = (currentTime - lastUpdateTime) / 1000;
+        lastUpdateTime = currentTime;
+
         var totalCps = getTotalCps();
         if (totalCps > 0) {
-            cookies += totalCps / 10;
+            cookies += totalCps * deltaTime;
             updateDisplay();
         }
     }, 100);
@@ -190,21 +232,18 @@ permalink: /Cookie-Clicker/
         saveGame();
     }, 5000);
 
+    // Save on page unload to capture the exact moment
+    window.addEventListener('beforeunload', function() {
+        saveGame();
+    });
+
+    // Save on visibility change (tab switching)
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            saveGame();
+        }
+    });
+
     loadGame();
 })();
 </script>
-<button id="cookie-button" class="w-64 h-64 rounded-full cursor-pointer shadow-2xl hover:scale-105 active:scale-95 transition-transform duration-200 ease-out flex items-center justify-center relative overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-full"></div>
-            <div class="absolute inset-2 bg-gradient-to-br from-yellow-700 via-amber-500 to-yellow-600 rounded-full"></div>
-            <div class="absolute inset-0 opacity-30">
-                <div class="absolute w-8 h-8 bg-amber-800 rounded-full" style="top: 20%; left: 25%;"></div>
-                <div class="absolute w-6 h-6 bg-amber-900 rounded-full" style="top: 35%; left: 65%;"></div>
-                <div class="absolute w-7 h-7 bg-yellow-900 rounded-full" style="top: 60%; left: 30%;"></div>
-                <div class="absolute w-5 h-5 bg-amber-800 rounded-full" style="top: 70%; left: 70%;"></div>
-                <div class="absolute w-6 h-6 bg-yellow-800 rounded-full" style="top: 45%; left: 50%;"></div>
-                <div class="absolute w-4 h-4 bg-amber-900 rounded-full" style="top: 25%; left: 75%;"></div>
-                <div class="absolute w-5 h-5 bg-yellow-900 rounded-full" style="top: 80%; left: 45%;"></div>
-                <div class="absolute w-6 h-6 bg-amber-800 rounded-full" style="top: 15%; left: 50%;"></div>
-            </div>
-            <div class="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white opacity-20 rounded-full"></div>
-        </button>
