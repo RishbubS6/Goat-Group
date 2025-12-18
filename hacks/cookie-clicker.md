@@ -193,3 +193,18 @@ permalink: /Cookie-Clicker/
     loadGame();
 })();
 </script>
+<button id="cookie-button" class="w-64 h-64 rounded-full cursor-pointer shadow-2xl hover:scale-105 active:scale-95 transition-transform duration-200 ease-out flex items-center justify-center relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-full"></div>
+            <div class="absolute inset-2 bg-gradient-to-br from-yellow-700 via-amber-500 to-yellow-600 rounded-full"></div>
+            <div class="absolute inset-0 opacity-30">
+                <div class="absolute w-8 h-8 bg-amber-800 rounded-full" style="top: 20%; left: 25%;"></div>
+                <div class="absolute w-6 h-6 bg-amber-900 rounded-full" style="top: 35%; left: 65%;"></div>
+                <div class="absolute w-7 h-7 bg-yellow-900 rounded-full" style="top: 60%; left: 30%;"></div>
+                <div class="absolute w-5 h-5 bg-amber-800 rounded-full" style="top: 70%; left: 70%;"></div>
+                <div class="absolute w-6 h-6 bg-yellow-800 rounded-full" style="top: 45%; left: 50%;"></div>
+                <div class="absolute w-4 h-4 bg-amber-900 rounded-full" style="top: 25%; left: 75%;"></div>
+                <div class="absolute w-5 h-5 bg-yellow-900 rounded-full" style="top: 80%; left: 45%;"></div>
+                <div class="absolute w-6 h-6 bg-amber-800 rounded-full" style="top: 15%; left: 50%;"></div>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-white opacity-20 rounded-full"></div>
+        </button>
